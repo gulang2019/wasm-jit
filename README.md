@@ -1,4 +1,4 @@
-# Project 3: A WebAssembly JIT Compiler
+# Project 3B: A WebAssembly JIT Compiler
 
 In this project, you will implement a just-in-time compiler for the 
 subset of Wasm implemented in the Project 1 interpreter.
