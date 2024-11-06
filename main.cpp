@@ -7,6 +7,8 @@
 #include "common.h"
 #include "parse.h"
 #include "ir.h"
+#include "interpreter.h"
+#include "instance.h"
 
 static struct option long_options[] = {
   {"trace", no_argument,  &g_trace, 1},
@@ -17,6 +19,7 @@ static struct option long_options[] = {
 typedef struct args_t {
   std::string infile;
   std::vector<std::string> mainargs;
+  bool jit = false; 
 } args_t;
 
 args_t parse_args(int argc, char* argv[]) {
@@ -31,6 +34,9 @@ args_t parse_args(int argc, char* argv[]) {
         while ((optind < (argc - 1))) {
           args.mainargs.push_back(argv[optind++]);
         }
+        break;
+      case 'j':
+        args.jit = true;
         break;
       case 'h':
       default:
@@ -68,8 +74,24 @@ int main(int argc, char *argv[]) {
   WasmModule module = parse_bytecode(start, end);
   unload_file(&start, &end);
   
+  /* */
   /* Interpreter here */
   /* */
+  Instance instance(module);
+  Interpreter interp(module, instance);
+  Result res = interp.run(args.mainargs);
+  if (res.type == Result::TRHOWN) {
+    // ERR("%s, %d: %s\n", \
+    //     res.res.thrown.file, \
+    //     res.res.thrown.lineno\
+    //     , res.res.thrown.reason);
+    printf("!trap\n");
+    return 0;
+  }
+  else if (res.type == Result::RETURNED) {
+    auto& v = res.res.ret;
+    v.print();
+  }
 
   return 0;
 }
