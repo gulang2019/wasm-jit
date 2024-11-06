@@ -264,7 +264,13 @@ class WasmModule {
     inline std::deque <FuncDecl> &Funcs() { return this->funcs; }
     inline std::deque <GlobalDecl> &Globals() { return this->globals; }
     inline std::list  <ExportDecl> &Exports() { return this->exports; }
-
+    inline std::list <MemoryDecl>& Memories() { return this->mems; }
+    inline std::list <TableDecl>& Tables() { return this->tables; } 
+    inline std::list <SigDecl>& Sigs() { return this->sigs; } 
+    inline std::list <ElemDecl>& Elems() { return this->elems; } 
+    inline std::list <DataDecl>& Datas() { return this->datas; } 
+    inline ImportSet& get_imports() { return this->imports; }
+    
     inline FuncDecl* get_start_fn() { return this->start_fn; }
     inline uint32_t get_num_customs() { return this->customs.size(); }
 
