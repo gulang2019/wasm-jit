@@ -23,8 +23,9 @@ class Interpreter {
 public:
     Interpreter(
         WasmModule& module,
-        Instance& instance):
-        _module(module), _instance(instance){}
+        Instance& instance,
+        bool jit = false):
+        _module(module), _instance(instance), _jit(jit){}
     
     Result run(const std::vector<std::string>& mainargs);
 
@@ -41,6 +42,7 @@ private:
     WasmModule& _module;
     Instance& _instance; 
     Frame* _frame = nullptr; 
+    bool _jit;
 
 
     void _reset(Function* func);
@@ -51,6 +53,7 @@ private:
     void _exec_op(Opcode_t opcode);
     void _do_return(int fp, SigDecl* sig);
     void _do_func_call(Function* func);
+    void _do_jit(Function* func);
     void _advance_caller();
     void* _mem_acc(unsigned size);
     void _clear();

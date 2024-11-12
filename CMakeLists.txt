@@ -5,7 +5,8 @@ set(CMAKE_BUILD_TYPE Debug)
 
 include(vm_lib.cmake)
 
-include_directories (inc .)
+include_directories (inc . xbyak)
+
 # --- Main executable --- #
 add_executable (wasm-vm main.cpp)
 target_link_libraries (wasm-vm vm -lm)

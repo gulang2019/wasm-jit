@@ -13,7 +13,8 @@
 static struct option long_options[] = {
   {"trace", no_argument,  &g_trace, 1},
   {"args", optional_argument, NULL, 'a'},
-  {"help", no_argument, NULL, 'h'}
+  {"help", no_argument, NULL, 'h'},
+  {"jit", no_argument, NULL, 'j'}
 };
 
 typedef struct args_t {
@@ -26,7 +27,7 @@ args_t parse_args(int argc, char* argv[]) {
   int opt;
   args_t args;
   optind = 0;
-  while ((opt = getopt_long_only(argc, argv, ":a:h", long_options, NULL)) != -1) {
+  while ((opt = getopt_long_only(argc, argv, ":a:hj", long_options, NULL)) != -1) {
     switch(opt) {
       case 0: break;
       case 'a':
@@ -40,7 +41,7 @@ args_t parse_args(int argc, char* argv[]) {
         break;
       case 'h':
       default:
-        ERR("Usage: %s [--trace (optional)] [-a <space-separated args>] <input-file>\n", argv[0]);
+        ERR("Usage: %s [--trace (optional)]  [-a <space-separated args>] <input-file>\n", argv[0]);
         exit(opt != 'h');
     }
   }
@@ -78,7 +79,7 @@ int main(int argc, char *argv[]) {
   /* Interpreter here */
   /* */
   Instance instance(module);
-  Interpreter interp(module, instance);
+  Interpreter interp(module, instance, args.jit);
   Result res = interp.run(args.mainargs);
   if (res.type == Result::TRHOWN) {
     // ERR("%s, %d: %s\n", \

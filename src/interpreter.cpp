@@ -2,9 +2,11 @@
 #include <cmath>
 #include <bit>
 #include <stdexcept>
+#include <csignal>
 
 #include "interpreter.h"
 #include "common.h"
+#include "utils.h"
 
 Result Interpreter::run(const std::vector<std::string>& mainargs) {
     assert(_module.get_start_fn() == nullptr);
@@ -40,7 +42,7 @@ Result Interpreter::run(const std::vector<std::string>& mainargs) {
     }
     assert(main_fn != nullptr);
 
-    // run the main function 
+    // run the main function
     _reset(main_fn);
     std::vector<Value> _args;
     assert(mainargs.size() == main_fn->_decl.sig->params.size());;
@@ -51,6 +53,47 @@ Result Interpreter::run(const std::vector<std::string>& mainargs) {
     }
     _bind(_args);
     return _run();
+}
+
+void Interpreter::_do_jit(Function* func){
+  if (func->_decl.sig->results.front() == WASM_TYPE_I32) {
+    std::vector<value_t> jit_stack(func->max_stack_offset / sizeof(value_t));
+    for (int i = 0; i < _value_stack.size(); i++) {
+      jit_stack.at(i) = _value_stack.at(i)._value;
+    }
+    void* vfp = jit_stack.data();
+    void* mem_start = nullptr;
+    void* mem_end = nullptr;
+    if (_instance._memories.size() > 0) {
+      mem_start = _instance._memories.at(0)._data.data();
+      mem_end = _instance._memories.at(0)._data.data() + _instance._memories.at(0)._data.size();
+    }
+    std::vector<value_t> jit_globals;
+    for (auto& global: _instance._globals) {
+      jit_globals.push_back(global._value._value);
+    }
+    auto f = func->code_generator->getCode<int (*)(void*, void*, void*, void*)>();
+    int res = f(vfp, mem_start, mem_end, jit_globals.data());
+    for (size_t i = 0; i < jit_globals.size(); i++) {
+      _instance._globals.at(i)._value._value = jit_globals.at(i);
+    }
+    TRACE("res: %d\n", res);
+    _value_stack.push_back(Value(res));
+  }
+  else if (func->_decl.sig->results.front() == WASM_TYPE_F64) {
+    std::vector<value_t> jit_stack(func->max_stack_offset / sizeof(value_t));
+    for (int i = 0; i < _value_stack.size(); i++) {
+      jit_stack.at(i) = _value_stack.at(i)._value;
+    }
+
+    void* vfp = jit_stack.data();
+    auto f = func->code_generator->getCode<double (*)(void*)>();
+    double res = f(vfp);
+    _value_stack.push_back(Value(res));
+  }
+  else {
+    ERR("Invalid return type\n");
+  }
 }
 
 Result Interpreter::_run(){
@@ -96,7 +139,14 @@ if (frame == null || host_outcall != null) return;
 			}
 			execOp(pc, opcode);
 */
-  
+    std::signal(SIGFPE, [](int sig) {
+      printf("!trap\n");
+      exit(-1);
+    });
+    std::signal(SIGKILL, [](int sig) {
+      printf("!trap\n");
+      exit(-1);
+    });
     if (g_trace) {
           // print the stack
           for (auto& v: _value_stack) {
@@ -116,6 +166,12 @@ if (frame == null || host_outcall != null) return;
             local_cnt += pure_local.count;
           }
           assert(local_cnt == func->_decl.num_pure_locals);
+          if (_jit) {
+            // Fire entry probe(s).
+            _do_jit(func);
+            _do_return(_frame->fp, func->_decl.sig);
+            continue;
+          }
         }
         Opcode_t opcode = _codeptr.rd_opcode();
         // if (g_trace) {

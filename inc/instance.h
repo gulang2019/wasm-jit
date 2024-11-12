@@ -1,8 +1,10 @@
 #pragma once
 #include <stdio.h>
 #include <unordered_map>
+#include <memory>
 
 #include "ir.h"
+#include "xbyak/xbyak.h"
 
 class Instance; 
 
@@ -10,6 +12,16 @@ struct Throwable {
     const char* reason;
     const char* file;
     int lineno;
+};
+
+
+union value_t{
+        int32_t i32;
+        unsigned int u32;
+        int64_t i64;
+        unsigned long u64;
+        float f32;
+        double f64;
 };
 
 struct Value {
@@ -23,14 +35,7 @@ struct Value {
     Value(double f64): _type(WASM_TYPE_F64) {_value.f64 = f64;}
     void print(FILE* file = stdout);
     wasm_type_t _type;
-    union {
-        int32_t i32;
-        unsigned int u32;
-        int64_t i64;
-        unsigned long u64;
-        float f32;
-        double f64;
-    } _value;
+    value_t _value;
 };
 
 struct Memory {
@@ -50,6 +55,8 @@ struct Function {
     FuncDecl& _decl; 
     Instance& _instance;
     j_table_t _j_table;
+    std::unique_ptr<Xbyak::CodeGenerator> code_generator;
+    size_t max_stack_offset;
 };
 
 // struct Sig{

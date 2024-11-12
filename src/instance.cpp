@@ -4,6 +4,7 @@
 
 #include "instance.h"
 #include "CodeReader.h"
+#include "SinglePassCompiler.h"
 
 Value::Value(wasm_type_t type, void* data): _type(type) {
     if (data == nullptr){
@@ -150,7 +151,7 @@ struct DataDecl {
 struct Block{
     int start;
     enum {LOOP, BLOCK, IF} type;
-    std::vector<int> j_here;
+    std::vector<int> j_here; // positions that jump to either the start or End for this block
 };
 
 void parse_j_table(FuncDecl* func, j_table_t& j_table) {
@@ -164,8 +165,6 @@ void parse_j_table(FuncDecl* func, j_table_t& j_table) {
 
         opcode_entry_t entry = opcode_table[opcode];
 
-        
-        
         unsigned index = -1;
         if (opcode == WASM_OP_BR || opcode == WASM_OP_BR_IF) {
             index = codeptr.rd_u32leb();
@@ -220,7 +219,7 @@ void parse_j_table(FuncDecl* func, j_table_t& j_table) {
         switch (opcode) {
             case WASM_OP_IF: {
                 blocks.push_back({pos, Block::IF});
-                blocks.back().j_here.push_back(pos_after);
+                blocks.back().j_here.push_back(pos_after); // hack on the j_here to jump to the false branch
                 break;
             }
             case WASM_OP_BLOCK:{
@@ -235,7 +234,7 @@ void parse_j_table(FuncDecl* func, j_table_t& j_table) {
                 // the false branch of if should go here
                 assert(blocks.back().type == Block::IF);
                 assert(blocks.back().j_here.size() == 1);
-                j_table[blocks.back().j_here.back()] = pos_after;
+                j_table[blocks.back().j_here.back()] = pos_after; // the false branch jumps here; 
                 blocks.back().j_here.pop_back();
                 blocks.back().j_here.push_back(pos_after); // the else branch should jump to the end;
                 break;
@@ -271,6 +270,7 @@ void parse_j_table(FuncDecl* func, j_table_t& j_table) {
 
 Function::Function(FuncDecl& decl, Instance& instance): _decl(decl), _instance(instance) {
     parse_j_table(&_decl, _j_table);
+    SinglePassCompiler(this).compile();
 }
 
 Table::Table(TableDecl& decl, std::list<ElemDecl>& elems):
@@ -284,3 +284,4 @@ _decl(decl){
         }
     }
 }
+
