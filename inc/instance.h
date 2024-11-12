@@ -57,6 +57,7 @@ struct Function {
     j_table_t _j_table;
     std::unique_ptr<Xbyak::CodeGenerator> code_generator;
     size_t max_stack_offset;
+    std::vector<double> f64_imms;
 };
 
 // struct Sig{

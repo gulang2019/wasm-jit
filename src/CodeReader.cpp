@@ -48,6 +48,14 @@ void CodePtr::skip_block_type(){
     // TODO: if (BpConstants.typeCodeHasIndex(code)) skip_leb();
 }
 
+std::vector<int> CodePtr::rd_labels() {
+    int length =rd_u32leb();
+    std::vector<int> labels;
+    for (int i = 0; i <= length; ++i)
+        labels.push_back(rd_u32leb());
+    return labels;  
+}
+
 MemArg CodePtr::rd_mem_arg(){
     return {
         .flags = rd_u32leb(),

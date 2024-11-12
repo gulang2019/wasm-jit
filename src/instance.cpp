@@ -110,11 +110,11 @@ Instance::Instance(WasmModule& module): _module(module) {
     for (auto& mem: _module.Memories()){
         _memories.push_back(Memory(mem, _module.Datas()));
     }
-    for (auto &func: _module.Funcs()){
-        _functions.push_back(Function(func, *this));
-    }
     for (auto &global: _module.Globals()){
         _globals.push_back(Global(global));
+    }
+    for (auto &func: _module.Funcs()){
+        _functions.push_back(Function(func, *this));
     }
     for (auto &table: _module.Tables()){
         _tables.push_back(Table(table, _module.Elems()));
@@ -179,7 +179,7 @@ void parse_j_table(FuncDecl* func, j_table_t& j_table) {
                     break;
                 }
                 case IMM_LABELS: {
-                    ERR("IMM_LABELS not implemented");
+                    codeptr.rd_labels();
                     break;
                 }
                 case IMM_SIG_TABLE: {
@@ -207,7 +207,7 @@ void parse_j_table(FuncDecl* func, j_table_t& j_table) {
                 }
                 case IMM_F64:
                 case IMM_I64: {
-                    codeptr.rd_u64leb();
+                    codeptr.rd_u64();
                     break;
                 }
                 default: 

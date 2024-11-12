@@ -3,6 +3,8 @@
 #include "common.h"
 #include "instance.h"
 
+#include <vector>
+
 class CodePtr {
     buffer_t buf;
 
@@ -38,4 +40,6 @@ public:
 	void skip_block_type();
 	void skip_leb();
 	MemArg rd_mem_arg();
+
+	std::vector<int> rd_labels();
 };

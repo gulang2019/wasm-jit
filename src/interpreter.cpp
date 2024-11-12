@@ -11,6 +11,8 @@
 Result Interpreter::run(const std::vector<std::string>& mainargs) {
     assert(_module.get_start_fn() == nullptr);
     // evaluate the global variables, treat them as functions
+    auto _old_jit = _jit;
+    _jit = false;
     for (auto& global: _instance._globals){
       if (global._decl.init_expr_bytes.size() > 0) {
         FuncDecl func_decl({
@@ -32,6 +34,7 @@ Result Interpreter::run(const std::vector<std::string>& mainargs) {
         global._value = Value(global._decl.type, nullptr);
       }
     }
+    _jit = _old_jit;
 
     // find the main function
     Function* main_fn = nullptr;
@@ -56,7 +59,6 @@ Result Interpreter::run(const std::vector<std::string>& mainargs) {
 }
 
 void Interpreter::_do_jit(Function* func){
-  if (func->_decl.sig->results.front() == WASM_TYPE_I32) {
     std::vector<value_t> jit_stack(func->max_stack_offset / sizeof(value_t));
     for (int i = 0; i < _value_stack.size(); i++) {
       jit_stack.at(i) = _value_stack.at(i)._value;
@@ -72,28 +74,27 @@ void Interpreter::_do_jit(Function* func){
     for (auto& global: _instance._globals) {
       jit_globals.push_back(global._value._value);
     }
-    auto f = func->code_generator->getCode<int (*)(void*, void*, void*, void*)>();
-    int res = f(vfp, mem_start, mem_end, jit_globals.data());
-    for (size_t i = 0; i < jit_globals.size(); i++) {
-      _instance._globals.at(i)._value._value = jit_globals.at(i);
+    if (func->_decl.sig->results.front() == WASM_TYPE_I32) {
+      auto f = func->code_generator->getCode<int (*)(void*, void*, void*, void*)>();
+      int res = f(vfp, mem_start, mem_end, jit_globals.data());
+      for (size_t i = 0; i < jit_globals.size(); i++) {
+        _instance._globals.at(i)._value._value = jit_globals.at(i);
+      }
+      TRACE("res: %d\n", res);
+      _value_stack.push_back(Value(res));
     }
-    TRACE("res: %d\n", res);
-    _value_stack.push_back(Value(res));
-  }
-  else if (func->_decl.sig->results.front() == WASM_TYPE_F64) {
-    std::vector<value_t> jit_stack(func->max_stack_offset / sizeof(value_t));
-    for (int i = 0; i < _value_stack.size(); i++) {
-      jit_stack.at(i) = _value_stack.at(i)._value;
+    else if (func->_decl.sig->results.front() == WASM_TYPE_F64) {
+      auto f = func->code_generator->getCode<double (*)(void*, void*, void*, void*)>();
+      double res = f(vfp, mem_start, mem_end, jit_globals.data());
+      for (size_t i = 0; i < jit_globals.size(); i++) {
+        _instance._globals.at(i)._value._value = jit_globals.at(i);
+      }
+      TRACE("res: %d\n", res);
+      _value_stack.push_back(Value(res));
     }
-
-    void* vfp = jit_stack.data();
-    auto f = func->code_generator->getCode<double (*)(void*)>();
-    double res = f(vfp);
-    _value_stack.push_back(Value(res));
-  }
-  else {
-    ERR("Invalid return type\n");
-  }
+    else {
+      ERR("unsupported return type");
+    }
 }
 
 Result Interpreter::_run(){

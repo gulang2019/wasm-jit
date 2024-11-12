@@ -69,6 +69,7 @@ struct AbstractValueRef {
 
 struct CodeGenerator: public Xbyak::CodeGenerator {
     const Xbyak::Reg64& vfp;
+    const Xbyak::Reg64& tmp_i64;
     const Xbyak::Reg32& tmp_i32;
     const Xbyak::Reg16& tmp_i16;
     const Xbyak::Reg8& tmp_i8;

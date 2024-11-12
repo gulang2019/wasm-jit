@@ -15,7 +15,7 @@
 #define PER_VALUE_STACK_SIZE sizeof(value_t)
 
 CodeGenerator::CodeGenerator(): 
-Xbyak::CodeGenerator(4096), vfp(r9), tmp_i32(r8d), tmp_i16(r8w), tmp_i8(r8b), tmp_f64(xmm1), mem_start(r12), mem_end(r13), global_start(r14) {
+Xbyak::CodeGenerator(4096), vfp(r9), tmp_i64(r8), tmp_i32(r8d), tmp_i16(r8w), tmp_i8(r8b), tmp_f64(xmm1), mem_start(r12), mem_end(r13), global_start(r14) {
     for (const Xbyak::Reg32* reg : { &edi, &esi, &r10d, &r11d, &r12d }) {
         i32_registers.push_back(Register(reg));    // Store by value, not reference
     }
@@ -359,7 +359,7 @@ size_t AbstractStack::max_stack_offset() {
     code_generator.FUNC(d_reg->as_f64(), b_reg->as_f64());\
 }
 
-#define LOAD(TYPE, TYPETAG, MOV, WORD) {\
+#define LOAD(TYPE, TYPETAG, MOV, WORD, NBYTE) {\
     auto offset = stack.at(-1);\
     stack.pop();\
     auto reg = code_generator.to_reg(offset);\
@@ -368,15 +368,17 @@ size_t AbstractStack::max_stack_offset() {
     code_generator.mov(code_generator.eax, reg->as_i32());\
     code_generator.add(code_generator.rax, code_generator.mem_start);\
     code_generator.add(code_generator.rax, mem_arg.offset);\
-    code_generator.cmp(code_generator.rax, code_generator.mem_end);\
-    code_generator.jge("TRAP");\
     code_generator.cmp(code_generator.rax, code_generator.mem_start);\
     code_generator.jl("TRAP");\
+    code_generator.mov(code_generator.tmp_i64, code_generator.rax);\
+    code_generator.add(code_generator.tmp_i64, NBYTE);\
+    code_generator.cmp(code_generator.tmp_i64, code_generator.mem_end);\
+    code_generator.jg("TRAP");\
     auto d_reg = code_generator.to_reg(stack.push(TYPE));\
     code_generator.MOV(d_reg->TYPETAG(), code_generator.WORD[code_generator.rax]);\
 }
 
-#define STORE \
+#define STORE(n_byte) \
     auto v = stack.at(-1);\
     auto v_reg = code_generator.to_reg(v);\
     stack.pop();\
@@ -388,21 +390,30 @@ size_t AbstractStack::max_stack_offset() {
     code_generator.mov(code_generator.eax, reg->as_i32());\
     code_generator.add(code_generator.rax, code_generator.mem_start);\
     code_generator.add(code_generator.rax, mem_arg.offset);\
-    code_generator.cmp(code_generator.rax, code_generator.mem_end);\
-    code_generator.jge("TRAP");\
     code_generator.cmp(code_generator.rax, code_generator.mem_start);\
-    code_generator.jl("TRAP");
+    code_generator.jl("TRAP");\
+    code_generator.mov(code_generator.tmp_i64, code_generator.rax);\
+    code_generator.add(code_generator.tmp_i64, n_byte);\
+    code_generator.cmp(code_generator.tmp_i64, code_generator.mem_end);\
+    code_generator.jg("TRAP");\
 
 
-#define STORE_I32(WORD, TMPREG){\
-    STORE\
+#define STORE_I32(WORD, TMPREG, NBYTE){\
+    STORE(NBYTE)\
     code_generator.mov(code_generator.tmp_i32, v_reg->as_i32());\
     code_generator.mov(code_generator.WORD[code_generator.rax], code_generator.TMPREG);\
 }
 
 #define STORE_F64() {\
-    STORE\
+    STORE(8)\
     code_generator.movsd(code_generator.qword[code_generator.rax], v_reg->as_f64());\
+}
+
+#define SINGULAR_I32(OP) {\
+    auto reg = code_generator.to_reg(stack.at(-1));\
+    stack.pop();\
+    auto dreg = code_generator.to_reg(stack.push(WASM_TYPE_I32));\
+    code_generator.OP(dreg->as_i32(), reg->as_i32());\
 }
 
 SinglePassCompiler::SinglePassCompiler(
@@ -487,7 +498,8 @@ void SinglePassCompiler::compile() {
                     blocks.pop_back();
                 }
 
-                if (codeptr.is_end()) {
+                if (codeptr.is_end() 
+                and (stack.size() == (func->_decl.sig->results.size() + func->_decl.sig->params.size()))) {
                     _do_return();
                 }
                 break;
@@ -510,11 +522,21 @@ void SinglePassCompiler::compile() {
                 break;
             }
             case WASM_OP_BR_TABLE:{
-                ERR("WASM_OP_BR_TABLE not implemented for single pass compiler");
+                auto labels = codeptr.rd_labels();
+                auto v = code_generator.to_reg(stack.at(-1));
+                stack.pop();
+                stack.flush_to_memory();
+                for (int i = 0; i < labels.size() -1; ++i) {
+                    code_generator.cmp(v->as_i32(), i);
+                    code_generator.je(blocks[blocks.size() - 1 - labels[i]].label);
+                }
+                code_generator.jmp(blocks[blocks.size() - 1 - labels.back()].label);
                 break;
             }
             case WASM_OP_RETURN:{
                 _do_return();
+                for (int i = 0; i < (int)func->_decl.sig->results.size(); i++)
+                    stack.pop();
                 break;
             }
             case WASM_OP_CALL:{
@@ -547,39 +569,66 @@ void SinglePassCompiler::compile() {
                 break;
             }
             case WASM_OP_GLOBAL_GET:{
-                ERR("WASM_OP_GLOBAL_GET not implemented for single pass compiler");
+                auto idx = codeptr.rd_u32leb();
+                auto offset = PER_VALUE_STACK_SIZE * idx;
+                auto t = func->_instance._globals.at(idx)._decl.type;
+                if (t == WASM_TYPE_I32) {
+                    auto reg = code_generator.to_reg(stack.push(t));
+                    code_generator.mov(reg->as_i32(), code_generator.dword[code_generator.global_start + offset]);
+                }
+                else if (t == WASM_TYPE_F64) {
+                    auto reg = code_generator.to_reg(stack.push(t));
+                    code_generator.movsd(reg->as_f64(), code_generator.qword[code_generator.global_start + offset]);
+                }
+                else {
+                    ERR("Invalid global type");
+                }
                 break;
             }
             case WASM_OP_GLOBAL_SET:{
-                ERR("WASM_OP_GLOBAL_SET not implemented for single pass compiler");
+                auto idx = codeptr.rd_u32leb();
+                auto offset = PER_VALUE_STACK_SIZE * idx;
+                auto v = stack.at(-1);
+                stack.pop();
+                auto reg = code_generator.to_reg(v);
+                auto t = func->_instance._globals.at(idx)._decl.type;
+                if (t == WASM_TYPE_I32) {
+                    code_generator.mov(code_generator.dword[code_generator.global_start + offset], reg->as_i32());
+                }
+                else if (t == WASM_TYPE_F64) {
+                    code_generator.movsd(code_generator.qword[code_generator.global_start + offset], reg->as_f64());
+                }
+                else {
+                    ERR("Invalid global type");
+                }
                 break;
             }
             case WASM_OP_I32_LOAD:{
-                LOAD(WASM_TYPE_I32, as_i32, mov, dword);
+                LOAD(WASM_TYPE_I32, as_i32, mov, dword, 4);
                 break;
             }
             case WASM_OP_F64_LOAD:{
-                LOAD(WASM_TYPE_F64, as_f64, movsd, qword);
+                LOAD(WASM_TYPE_F64, as_f64, movsd, qword, 8);
                 break;
             }
             case WASM_OP_I32_LOAD8_S:{
-                LOAD(WASM_TYPE_I32, as_i32, movsx, byte);
+                LOAD(WASM_TYPE_I32, as_i32, movsx, byte, 1);
                 break;
             }
             case WASM_OP_I32_LOAD8_U:{
-                LOAD(WASM_TYPE_I32, as_i32, movzx, byte);
+                LOAD(WASM_TYPE_I32, as_i32, movzx, byte, 1);
                 break;
             }
             case WASM_OP_I32_LOAD16_S:{
-                LOAD(WASM_TYPE_I32, as_i32, movsx, word);
+                LOAD(WASM_TYPE_I32, as_i32, movsx, word, 2);
                 break;
             }
             case WASM_OP_I32_LOAD16_U:{
-                LOAD(WASM_TYPE_I32, as_i32, movzx, word);
+                LOAD(WASM_TYPE_I32, as_i32, movzx, word, 2);
                 break;
             }
             case WASM_OP_I32_STORE:{
-                STORE_I32(dword, tmp_i32);
+                STORE_I32(dword, tmp_i32, 4);
                 break;
             }
             case WASM_OP_F64_STORE:{
@@ -587,11 +636,11 @@ void SinglePassCompiler::compile() {
                 break;
             }
             case WASM_OP_I32_STORE8:{
-                STORE_I32(byte, tmp_i8);
+                STORE_I32(byte, tmp_i8, 1);
                 break;
             }
             case WASM_OP_I32_STORE16:{
-                STORE_I32(word, tmp_i16);
+                STORE_I32(word, tmp_i16, 2);
                 break;
             }
             case WASM_OP_MEMORY_SIZE:{
@@ -608,7 +657,11 @@ void SinglePassCompiler::compile() {
                 break;
             }
             case WASM_OP_F64_CONST:{
-                ERR("WASM_OP_F64_CONST not implemented for single pass compiler");
+                auto imm = codeptr.rd_u64();
+                func->f64_imms.push_back(*reinterpret_cast<double*>(&imm));        
+                auto reg = code_generator.to_reg(stack.push(WASM_TYPE_F64));
+                code_generator.mov(code_generator.rax, reinterpret_cast<uintptr_t>(&func->f64_imms.back()));
+                code_generator.movsd(reg->as_f64(), code_generator.qword[code_generator.rax]);
                 break;
             }
             case WASM_OP_I32_EQZ:{
@@ -692,15 +745,15 @@ void SinglePassCompiler::compile() {
                 break;
             }
             case WASM_OP_I32_CLZ:{
-                ERR("WASM_OP_I32_CLZ not implemented for single pass compiler");
+                SINGULAR_I32(lzcnt);
                 break;
             }
             case WASM_OP_I32_CTZ:{
-                ERR("WASM_OP_I32_CTZ not implemented for single pass compiler");
+                SINGULAR_I32(tzcnt);
                 break;
             }
             case WASM_OP_I32_POPCNT:{
-                ERR("WASM_OP_I32_POPCNT not implemented for single pass compiler");
+                SINGULAR_I32(popcnt);
                 break;
             }
             case WASM_OP_I32_ADD:{
@@ -816,27 +869,54 @@ void SinglePassCompiler::compile() {
                 break;
             }
             case WASM_OP_I32_TRUNC_F64_S:{
+                // auto reg = code_generator.to_reg(stack.at(-1));
+                // stack.pop();
+                // auto dreg = code_generator.to_reg(stack.push(WASM_TYPE_I32));
+                // code_generator.cvttsd2si(dreg->as_i32(), reg->as_f64());
+                // code_generator.fstsw(code_generator.ax);
+                // code_generator.sahf();
+                // code_generator.jp("TRAP");
                 ERR("WASM_OP_I32_TRUNC_F64_S not implemented for single pass compiler");
                 break;
             }
             case WASM_OP_I32_TRUNC_F64_U:{
+                // auto reg = code_generator.to_reg(stack.at(-1));
+                // stack.pop();
+                // auto dreg = code_generator.to_reg(stack.push(WASM_TYPE_I32));
+                // code_generator.cvttsd2si(dreg->as_i32(), reg->as_f64());
                 ERR("WASM_OP_I32_TRUNC_F64_U not implemented for single pass compiler");
                 break;
             }
             case WASM_OP_F64_CONVERT_I32_S:{
-                ERR("WASM_OP_F64_CONVERT_I32_S not implemented for single pass compiler");
+                auto reg = code_generator.to_reg(stack.at(-1));
+                stack.pop();
+                code_generator.movsxd(code_generator.rax, reg->as_i32());
+                auto dreg = code_generator.to_reg(stack.push(WASM_TYPE_F64));
+                code_generator.cvtsi2sd(dreg->as_f64(), code_generator.rax);
                 break;
             }
             case WASM_OP_F64_CONVERT_I32_U:{
-                ERR("WASM_OP_F64_CONVERT_I32_U not implemented for single pass compiler");
+                auto reg = code_generator.to_reg(stack.at(-1));
+                stack.pop();
+                code_generator.mov(code_generator.rax, reg->as_i32());
+                auto dreg = code_generator.to_reg(stack.push(WASM_TYPE_F64));
+                code_generator.cvtsi2sd(dreg->as_f64(), code_generator.rax);
                 break;
             }
             case WASM_OP_I32_EXTEND8_S:{
-                ERR("WASM_OP_I32_EXTEND8_S not implemented for single pass compiler");
+                auto reg = code_generator.to_reg(stack.at(-1));
+                stack.pop();
+                code_generator.mov(code_generator.eax, reg->as_i32());
+                auto dreg = code_generator.to_reg(stack.push(WASM_TYPE_I32));
+                code_generator.movsx(dreg->as_i32(), code_generator.al);
                 break;
             }
             case WASM_OP_I32_EXTEND16_S:{
-                ERR("WASM_OP_I32_EXTEND16_S not implemented for single pass compiler");
+                auto reg = code_generator.to_reg(stack.at(-1));
+                stack.pop();
+                code_generator.mov(code_generator.eax, reg->as_i32());
+                auto dreg = code_generator.to_reg(stack.push(WASM_TYPE_I32));
+                code_generator.movsx(dreg->as_i32(), code_generator.ax);
                 break;
             }
         };
@@ -854,7 +934,8 @@ void SinglePassCompiler::compile() {
 }
 
 void SinglePassCompiler::_do_return() {
-    assert(stack.size() == func->_decl.sig->results.size() + func->_decl.sig->params.size());
+    TRACE("stack.size() %d results.size() %d params.size() %d\n", stack.size(), func->_decl.sig->results.size(), func->_decl.sig->params.size());
+    // assert(stack.size() == func->_decl.sig->results.size() + func->_decl.sig->params.size());
     assert(func->_decl.sig->results.size() == 1);
 
     auto v = stack.at(-1);
