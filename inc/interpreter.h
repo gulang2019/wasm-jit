@@ -54,6 +54,7 @@ private:
     void _do_return(int fp, SigDecl* sig);
     void _do_func_call(Function* func);
     void _do_jit(Function* func);
+    int _jit_func_call_ii(int func_index, value_t* jit_stack);
     void _advance_caller();
     void* _mem_acc(unsigned size);
     void _clear();
@@ -93,5 +94,6 @@ protected:
     int stp;
     void* accessor;
     Interpreter& interp;
+    bool jit = false; // whether the frame is jitted 
 friend class Interpreter;
 };

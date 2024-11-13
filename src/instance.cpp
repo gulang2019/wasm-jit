@@ -119,6 +119,9 @@ Instance::Instance(WasmModule& module): _module(module) {
     for (auto &table: _module.Tables()){
         _tables.push_back(Table(table, _module.Elems()));
     }
+    for (auto &func: _functions){
+        func.jit();
+    }
 
     assert(_module.get_imports().get_num_imports() == 0);
     
@@ -270,6 +273,9 @@ void parse_j_table(FuncDecl* func, j_table_t& j_table) {
 
 Function::Function(FuncDecl& decl, Instance& instance): _decl(decl), _instance(instance) {
     parse_j_table(&_decl, _j_table);
+}
+
+void Function::jit() {
     SinglePassCompiler(this).compile();
 }
 

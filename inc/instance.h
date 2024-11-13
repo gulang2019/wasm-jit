@@ -58,6 +58,7 @@ struct Function {
     std::unique_ptr<Xbyak::CodeGenerator> code_generator;
     size_t max_stack_offset;
     std::vector<double> f64_imms;
+    void jit();
 };
 
 // struct Sig{

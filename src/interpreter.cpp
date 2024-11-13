@@ -58,10 +58,22 @@ Result Interpreter::run(const std::vector<std::string>& mainargs) {
     return _run();
 }
 
+int Interpreter::_jit_func_call_ii(int func_index, value_t* jit_stack) {
+  auto& func = _instance._functions[func_index];
+  for (auto& t: func._decl.sig->params){
+    _value_stack.emplace_back(jit_stack->i32);
+    jit_stack++;
+  }
+  _do_func_call(&func);
+  auto res = _run();
+  return res.res.ret._value.i32;
+}
+
 void Interpreter::_do_jit(Function* func){
     std::vector<value_t> jit_stack(func->max_stack_offset / sizeof(value_t));
-    for (int i = 0; i < _value_stack.size(); i++) {
-      jit_stack.at(i) = _value_stack.at(i)._value;
+    for (int i = 0, j = _value_stack.size() - func->_decl.sig->params.size(); 
+            i < func->_decl.sig->params.size(); i++, j++) {
+      jit_stack.at(i) = _value_stack.at(j)._value;
     }
     void* vfp = jit_stack.data();
     void* mem_start = nullptr;
@@ -75,17 +87,19 @@ void Interpreter::_do_jit(Function* func){
       jit_globals.push_back(global._value._value);
     }
     if (func->_decl.sig->results.front() == WASM_TYPE_I32) {
-      auto f = func->code_generator->getCode<int (*)(void*, void*, void*, void*)>();
-      int res = f(vfp, mem_start, mem_end, jit_globals.data());
+      auto f = func->code_generator->getCode<int (*)(void*, void*, void*, void*, void*, void*)>();
+      void* jit_globals_ptr = jit_globals.data();
+      void* call_back = (void*)&Interpreter::_jit_func_call_ii;
+      auto res = f(vfp, mem_start, mem_end, jit_globals_ptr, this, call_back);
       for (size_t i = 0; i < jit_globals.size(); i++) {
         _instance._globals.at(i)._value._value = jit_globals.at(i);
       }
-      TRACE("res: %d\n", res);
+      // TRACE("res: %d\n", res);
       _value_stack.push_back(Value(res));
     }
     else if (func->_decl.sig->results.front() == WASM_TYPE_F64) {
-      auto f = func->code_generator->getCode<double (*)(void*, void*, void*, void*)>();
-      double res = f(vfp, mem_start, mem_end, jit_globals.data());
+      auto f = func->code_generator->getCode<double (*)(void*, void*, void*, void*, void*, void*)>();
+      auto res = f(vfp, mem_start, mem_end, jit_globals.data(), this, (void*)&Interpreter::_jit_func_call_ii);
       for (size_t i = 0; i < jit_globals.size(); i++) {
         _instance._globals.at(i)._value._value = jit_globals.at(i);
       }
@@ -98,48 +112,6 @@ void Interpreter::_do_jit(Function* func){
 }
 
 Result Interpreter::_run(){
-/*
-if (frame == null || host_outcall != null) return;
-			var func = frame.func, pc = frame.pc;
-			if (pc == 0) {
-				// Entering the function; initialize locals.
-				codeptr.iterate_local_codes(pushLocals);
-				for (i < func.decl.num_ex_slots) values.push(Values.REF_NULL); // init legacy EH slots
-				frame.pc = pc = codeptr.pos; // update pc after decoding locals
-				// Fire entry probe(s).
-				if (func.decl.entry_probed) {
-					var throwable = Instrumentation.fireLocalProbes(DynamicLoc(func, 0, TargetFrame(frame)));
-					if (throwable != null) {
-						throw(throwable);
-						continue;
-					}
-				}
-			}
-
-			// Fire global probes.
-			if (Instrumentation.probes != null) {
-				var throwable = Instrumentation.fireGlobalProbes(DynamicLoc(func, pc, TargetFrame(frame)));
-				if (throwable != null) {
-					throw(throwable);
-					continue;
-				}
-			}
-			// Read the opcode.
-			var b = codeptr.peek1();
-			var opcode: Opcode;
-			if (b == InternalOpcode.PROBE.code) {
-				// First local probes.
-				var throwable = Instrumentation.fireLocalProbes(DynamicLoc(func, pc, TargetFrame(frame)));
-				if (throwable != null) {
-					throw(throwable);
-					continue;
-				}
-				opcode = codeptr.read_orig_opcode(frame.func.decl.orig_bytecode[pc]);
-			} else {
-				opcode = codeptr.read_opcode();
-			}
-			execOp(pc, opcode);
-*/
     std::signal(SIGFPE, [](int sig) {
       printf("!trap\n");
       exit(-1);
@@ -158,6 +130,9 @@ if (frame == null || host_outcall != null) return;
     while(_state==RUNNING){
         assert(_frame);
         Function* func = _frame->func;
+        if (_frame->jit) {
+          break;
+        }
         if (_frame->pc == 0) {
           int local_cnt = 0;
           for (auto& pure_local: func->_decl.pure_locals){
@@ -169,6 +144,7 @@ if (frame == null || host_outcall != null) return;
           assert(local_cnt == func->_decl.num_pure_locals);
           if (_jit) {
             // Fire entry probe(s).
+            _frame->jit = true;
             _do_jit(func);
             _do_return(_frame->fp, func->_decl.sig);
             continue;
@@ -188,7 +164,8 @@ if (frame == null || host_outcall != null) return;
       case RETURNING:
         {assert(_return_arity == 1);
         auto ret = _value_stack.back();
-        _clear();
+        if (_frame == nullptr)
+          _clear();
         return Result({
           .type = Result::RETURNED,
           .res = {
@@ -721,7 +698,7 @@ void Interpreter::_do_func_call(Function* func) {
 void Interpreter::_do_return(int fp, SigDecl* sig) {
     auto count = sig->results.size();
     _frame = _pop_frame();
-    if (_frame == nullptr) {
+    if (_frame == nullptr || _frame->jit) {
         assert(_return_arity == count);
         _state = RETURNING;
     } else {

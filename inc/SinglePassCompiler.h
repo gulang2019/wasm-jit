@@ -69,6 +69,8 @@ struct AbstractValueRef {
 
 struct CodeGenerator: public Xbyak::CodeGenerator {
     const Xbyak::Reg64& vfp;
+    const Xbyak::Reg64& interp;
+    const Xbyak::Reg64& cfunc;
     const Xbyak::Reg64& tmp_i64;
     const Xbyak::Reg32& tmp_i32;
     const Xbyak::Reg16& tmp_i16;
@@ -84,6 +86,8 @@ public:
     CodeGenerator();
     Register* alloc(wasm_type_t type);
     Register* to_reg(AbstractValue* value);
+    void push_regs();
+    void pop_regs();
 };
 
 class AbstractStack {
@@ -99,6 +103,7 @@ public:
     void push(AbstractValue* value);
     void pop();
     AbstractValue* at(int idx);
+    AbstractValueRef& ref(int idx);
     void write(size_t idx, AbstractValue* value);
     void flush_to_memory();
     size_t max_stack_offset();

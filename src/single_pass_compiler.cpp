@@ -15,8 +15,11 @@
 #define PER_VALUE_STACK_SIZE sizeof(value_t)
 
 CodeGenerator::CodeGenerator(): 
-Xbyak::CodeGenerator(4096), vfp(r9), tmp_i64(r8), tmp_i32(r8d), tmp_i16(r8w), tmp_i8(r8b), tmp_f64(xmm1), mem_start(r12), mem_end(r13), global_start(r14) {
-    for (const Xbyak::Reg32* reg : { &edi, &esi, &r10d, &r11d, &r12d }) {
+Xbyak::CodeGenerator(4096), vfp(r10), interp(r11), 
+        cfunc(r12), tmp_i64(r8), tmp_i32(r8d), 
+        tmp_i16(r8w), tmp_i8(r8b), tmp_f64(xmm1), 
+        mem_start(r13), mem_end(r14), global_start(r15) {
+    for (const Xbyak::Reg32* reg : { &edi, &esi, &r9d}) {
         i32_registers.push_back(Register(reg));    // Store by value, not reference
     }
 
@@ -36,6 +39,24 @@ Xbyak::CodeGenerator(4096), vfp(r9), tmp_i64(r8), tmp_i32(r8d), tmp_i16(r8w), tm
         TRACE("%s ", reg.as_f64().toString());
     }
     TRACE("\n");
+}
+
+void CodeGenerator::push_regs() {
+    push(vfp);
+    push(interp);
+    push(cfunc);
+    push(mem_start);
+    push(mem_end);
+    push(global_start);
+}
+
+void CodeGenerator::pop_regs() {
+    pop(global_start);
+    pop(mem_end);
+    pop(mem_start);
+    pop(cfunc);
+    pop(interp);
+    pop(vfp);
 }
 
 Register* CodeGenerator::alloc(wasm_type_t type) {
@@ -205,6 +226,10 @@ AbstractValue* AbstractStack::at(int idx) {
         idx = stack.size() + idx;
     }
     return stack[idx].value;
+}
+
+AbstractValueRef& AbstractStack::ref(int idx) {
+    return stack[idx];
 }
 
 void AbstractStack::write(size_t idx, AbstractValue* value) { 
@@ -446,6 +471,8 @@ void SinglePassCompiler::compile() {
     code_generator.mov(code_generator.mem_start, code_generator.rsi);
     code_generator.mov(code_generator.mem_end, code_generator.rdx);
     code_generator.mov(code_generator.global_start, code_generator.rcx);
+    code_generator.mov(code_generator.interp, code_generator.r8);
+    code_generator.mov(code_generator.cfunc, code_generator.r9);
 
     for (auto t: func->_decl.sig->params) {
         stack.push(t);
@@ -540,7 +567,24 @@ void SinglePassCompiler::compile() {
                 break;
             }
             case WASM_OP_CALL:{
-                ERR("WASM_OP_CALL not implemented for single pass compiler");
+                auto idx = codeptr.rd_u32leb();
+                stack.flush_to_memory();
+                auto& callee = func->_instance._functions.at(idx);
+                size_t n_args = callee._decl.sig->params.size();
+                code_generator.mov(code_generator.rdi, code_generator.interp);
+                code_generator.mov(code_generator.rsi, idx);
+                code_generator.mov(code_generator.rdx, code_generator.vfp);
+                if (n_args)
+                    code_generator.add(code_generator.rdx, stack.ref(stack.size() - n_args).offset);
+                code_generator.push_regs();
+                code_generator.call(code_generator.cfunc);
+                code_generator.pop_regs();
+                assert (callee._decl.sig->results.size() == 1);
+                assert (callee._decl.sig->results.front() == WASM_TYPE_I32);
+                for (int i = 0; i < n_args; i++) 
+                    stack.pop();
+                auto d_reg = code_generator.to_reg(stack.push(callee._decl.sig->results.front()));
+                code_generator.mov(d_reg->as_i32(), code_generator.eax);
                 break;
             }
             case WASM_OP_CALL_INDIRECT:{
@@ -925,8 +969,8 @@ void SinglePassCompiler::compile() {
     code_generator.L("TRAP");
     code_generator.mov(code_generator.rax, reinterpret_cast<uintptr_t>(&trap));
     code_generator.call(code_generator.rax);
-    
-    std::ofstream outFile("generated_code.bin", std::ios::binary);
+    static int cnt = 0;
+    std::ofstream outFile("generated_code" + std::to_string(cnt++) + ".bin", std::ios::binary);
     outFile.write(reinterpret_cast<const char*>(code_generator.getCode()), code_generator.getSize());
     TRACE("generated code %p Executable %d\n", code_generator.getCode(), check_executable(code_generator.getCode()));
     func->code_generator = std::move(code_generator_ptr);
