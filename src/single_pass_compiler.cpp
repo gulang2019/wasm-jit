@@ -98,7 +98,6 @@ Register* CodeGenerator::to_reg(AbstractValue* value) {
         assert(value->reg->value == value);
         return value->reg;
     }
-    TRACE("Alloc  I32 %d\n", value->type == WASM_TYPE_I32);
     auto reg = alloc(value->type);
     reg->value = value;
     value->reg = reg;
@@ -200,7 +199,6 @@ void AbstractStack::push(AbstractValue* value) {
 
     _offset += PER_VALUE_STACK_SIZE;
     _max_stack_offset = std::max(_max_stack_offset, _offset);
-    TRACE("pushing value %p\n", value);
     stack.push_back(ref);
     value->refs.insert(stack.size() - 1);
 }
@@ -478,6 +476,10 @@ void SinglePassCompiler::compile() {
         stack.push(t);
     }
 
+    for (int i = 0; i < (int)func->_decl.num_pure_locals; i++) {
+        stack.push(WASM_TYPE_I32);
+    }
+
     TRACE("# inputs: %d\n", func->_decl.sig->params.size());
     TRACE("# outputs: %d\n", func->_decl.sig->results.size());
     std::vector<SPCBlock> blocks;
@@ -487,6 +489,8 @@ void SinglePassCompiler::compile() {
     blocks.emplace_back(SPCBlock::Type::BLOCK);
     while (!codeptr.is_end()) {
         auto opcode = codeptr.rd_opcode();
+        TRACE("opcode %s %d\n", opcode_table[opcode].mnemonic, stack.size());
+        // stack.print(std::cout); 
         switch (opcode) {
             case WASM_OP_UNREACHABLE:{
                 code_generator.ud2();
@@ -966,9 +970,9 @@ void SinglePassCompiler::compile() {
         };
     }
 
-    code_generator.L("TRAP");
-    code_generator.mov(code_generator.rax, reinterpret_cast<uintptr_t>(&trap));
-    code_generator.call(code_generator.rax);
+    // code_generator.L("TRAP");
+    // code_generator.mov(code_generator.rax, reinterpret_cast<uintptr_t>(&trap));
+    // code_generator.call(code_generator.rax);
     static int cnt = 0;
     std::ofstream outFile("generated_code" + std::to_string(cnt++) + ".bin", std::ios::binary);
     outFile.write(reinterpret_cast<const char*>(code_generator.getCode()), code_generator.getSize());
