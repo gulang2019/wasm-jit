@@ -89,8 +89,10 @@ public:
     void gen_func_start(const std::string &name, const FuncDecl &f) {
         ss << ".visible .entry " << name << "(\n";
         for (auto p: f.sig->params) {
+            auto ref = n_locals++;
+            if (ref < N_ENV) continue;
             ss << "  .param ." << render_ptype(wasm_to_ptx_type(p)) << " ";
-            ss << local_name(n_locals++);
+            ss << local_name(ref);
 
             if (n_locals == f.sig->params.size()) ss << "\n";
             else ss << ",\n";
