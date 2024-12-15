@@ -9,7 +9,7 @@
 #include "ir.h"
 #include "interpreter.h"
 #include "instance.h"
-#include "ptx_assmbler.h"
+#include "ptx_compiler.h"
 
 static struct option long_options[] = {
   {"trace", no_argument,  &g_trace, 1},
@@ -80,20 +80,34 @@ int main(int argc, char *argv[]) {
   /* Interpreter here */
   /* */
   Instance instance(module);
-  Interpreter interp(module, instance, args.jit);
-  Result res = interp.run(args.mainargs);
-  if (res.type == Result::TRHOWN) {
-    // ERR("%s, %d: %s\n", \
-    //     res.res.thrown.file, \
-    //     res.res.thrown.lineno\
-    //     , res.res.thrown.reason);
-    printf("!trap\n");
-    return 0;
+  // Interpreter interp(module, instance, args.jit);
+  // Result res = interp.run(args.mainargs);
+  // if (res.type == Result::TRHOWN) {
+  //   // ERR("%s, %d: %s\n", \
+  //   //     res.res.thrown.file, \
+  //   //     res.res.thrown.lineno\
+  //   //     , res.res.thrown.reason);
+  //   printf("!trap\n");
+  //   return 0;
+  // }
+  // else if (res.type == Result::RETURNED) {
+  //   auto& v = res.res.ret;
+  //   v.print();
+  // }
+
+  Function* main_fn = nullptr;
+  int main_idx = -1;
+  for (auto &[name, kind, desc] : module.Exports()) {
+    if (name == "main" && kind == KIND_FUNC) {
+      main_idx = module.getFuncIdx(desc.func);
+      main_fn = &instance._functions.at(main_idx);
+    }
   }
-  else if (res.type == Result::RETURNED) {
-    auto& v = res.res.ret;
-    v.print();
-  }
+  assert(main_fn != nullptr);
+
+  PTXCompiler cc;
+  TRACE("PTX JIT on Function #%d\n", main_idx);
+  cc.compile(&main_fn->_decl);
 
   return 0;
 }

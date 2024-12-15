@@ -16,5 +16,6 @@ public:
 
 private:
     PtxAsm masm;
-    AbstractStack stack;
+    PtxStack stack;
+    std::vector<wasm_type_t> local_types;
 };

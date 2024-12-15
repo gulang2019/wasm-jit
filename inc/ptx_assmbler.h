@@ -66,9 +66,15 @@ private:
 };
 
 class PtxAsm {
+
+public:
     PtxAsm() = default;
     void reset() { ss.str(""); ss.clear(); }
     std::string build() const { return ss.str(); }
+
+    void gen_headers() {
+
+    }
 
     // arithmetics
     void emit_add(PtxType t, uint32_t dest, SValue a, SValue b) {

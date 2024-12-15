@@ -119,9 +119,9 @@ Instance::Instance(WasmModule& module): _module(module) {
     for (auto &table: _module.Tables()){
         _tables.push_back(Table(table, _module.Elems()));
     }
-    for (auto &func: _functions){
-        func.jit();
-    }
+    // for (auto &func: _functions){
+    //     func.jit();
+    // }
 
     assert(_module.get_imports().get_num_imports() == 0);
     
