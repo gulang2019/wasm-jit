@@ -28,14 +28,6 @@
     i32.add
     local.set $row
 
-    ;; Bounds check: if row >= M, exit
-    local.get $row
-    local.get $M
-    i32.ge_u
-    if (result i32)
-      (return)
-    end
-
     ;; Initialize sum = 0.0
     f64.const 0
     local.set $sum
@@ -44,14 +36,6 @@
     i32.const 0
     local.set $col
     (loop $col_loop
-      ;; If col >= N, exit loop
-      local.get $col
-      local.get $N
-      i32.ge_u
-      if (result i32)
-        (return)
-      end
-
       ;; Compute address of A[row, col]
       local.get $row
       local.get $N
@@ -83,7 +67,10 @@
       local.set $col
 
       ;; Repeat loop
-      br $col_loop
+      local.get $col
+      local.get $N
+      i32.lt_s
+      br_if $col_loop ;; bra $L__BB0_5;
     )
 
     ;; Compute address of rowSums[row]
