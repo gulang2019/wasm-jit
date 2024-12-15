@@ -4,11 +4,6 @@
 #include "SinglePassCompiler.h"
 #include "ir.h"
 
-constexpr size_t N_ENV = 0;
-constexpr const char *ENV_PARAMS[] = {
-    // TODO: this
-};
-
 class PTXCompiler {
 
 public:
@@ -18,4 +13,6 @@ private:
     PtxAsm masm;
     PtxStack stack;
     std::vector<wasm_type_t> local_types;
+
+    void emit_binop(const char *mode, const SValue &a, const SValue &b);
 };

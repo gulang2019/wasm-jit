@@ -40,17 +40,50 @@ void PTXCompiler::compile(const FuncDecl &func) {
             case WASM_OP_LOCAL_SET: {
                 auto to = stack.at(codeptr.rd_i32leb());
                 auto from = stack.pop();
-
                 masm.emit_mov(to.local, from);
                 break;
             }
 
             case WASM_OP_I32_MUL: {
-                auto b = stack.pop();
-                auto a = stack.pop();
-                masm.emit_binop("mul.lo", a, b);
+                auto b = stack.pop(), a = stack.pop();
+                emit_binop("mul.lo", a, b);
                 break;
             }
+
+            case WASM_OP_I32_ADD: {
+                auto b = stack.pop(), a = stack.pop();
+                emit_binop("add", a, b);
+                break;
+            }
+
+            case WASM_OP_I32_CONST: {
+                auto v = codeptr.rd_i32leb();
+                auto r = masm.gen_local();
+                masm.emit_mov_i32(r, v);
+                stack.push(SValue(r, WASM_TYPE_I32));
+                break;
+            }
+
+            case WASM_OP_I32_LOAD: {
+                auto mem_arg = codeptr.rd_mem_arg();
+                auto v = stack.pop();
+                const char *mode;
+                if (v.local < func.sig->params.size()) mode = "param";
+                else mode = "global";
+                auto r = masm.gen_local();
+                masm.emit_load(mode, r, v);
+                break;
+            }
+
+            case WASM_OP_I32_STORE: {
+                auto mem_arg = codeptr.rd_mem_arg();
+                auto v = stack.pop();
+                auto addr = stack.pop();
+                masm.emit_store("global", addr, v);
+                break;
+            }
+
+            case WASM_OP_END: { break; }
 
             default: {
                 ERR("Unimplemented opcode [0x%x]\n", code);
@@ -64,4 +97,10 @@ void PTXCompiler::compile(const FuncDecl &func) {
 
     TRACE("\n\n\n=== OUTPUT ===\n\n");
     std::cout << masm.build() << std::endl;
+}
+
+void PTXCompiler::emit_binop(const char *mode, const SValue &a, const SValue &b) {
+    reg_t dest = masm.gen_local();
+    masm.emit_binop(mode, dest, a, b);
+    stack.push(a.with_reg(dest));
 }

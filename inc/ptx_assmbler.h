@@ -7,6 +7,11 @@
 
 typedef size_t reg_t;
 
+constexpr size_t N_ENV = 3;
+constexpr const char *ENV_PARAMS[] = {
+    "%ctaid.x", "%ntid.x", "%tid.x"
+};
+
 enum PtxType {
     U32, U64, S32, S64,
     F32, F64, B32, B64
@@ -44,7 +49,10 @@ struct SValue {
     reg_t local = 0;
 
     SValue(reg_t loc, wasm_type_t t): local(loc), type(t) {}
-    [[nodiscard]] std::string str() const { return local_name(local); }
+    [[nodiscard]] std::string str() const {
+        if (local < N_ENV) return ENV_PARAMS[local];
+        return local_name(local);
+    }
     [[nodiscard]] SValue with_reg(reg_t new_reg) const { return {new_reg, type}; }
 };
 
@@ -110,10 +118,25 @@ public:
         ss << "mov." << render_ptype(wasm_to_ptx_type(from.type)) << " ";
         ss << local_name(dest) << ", " << from.str() << "\n";
     }
+    void emit_mov_i32(reg_t dest, int32_t v) {
+        ss << "mov.s32 " << local_name(dest) << ", " << v << "\n";
+    }
 
-    void emit_binop(const char *op, const SValue &a, const SValue &b) {
+    void emit_binop(const char *op, reg_t dest, const SValue &a, const SValue &b) {
         ss << op << "." << render_ptype(wasm_to_ptx_type(a.type)) << " ";
-        ss << a.str() << ", " << b.str() << "\n";
+        ss << local_name(dest) << ", " << a.str() << ", " << b.str() << "\n";
+    }
+
+    void emit_load(const char *mode, reg_t r, const SValue &v) {
+        ss << "ld." << mode << "." << render_ptype(wasm_to_ptx_type(v.type));
+        ss << " " << local_name(r) << ", [";
+        ss << v.str() << "]\n";
+    }
+
+    void emit_store(const char *mode, const SValue &addr, const SValue &v) {
+        ss << "ld." << mode << "." << render_ptype(wasm_to_ptx_type(v.type));
+        ss << " [" << addr.str() << "], ";
+        ss << v.str() << "\n";
     }
 
 private:
