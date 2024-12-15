@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
 
   PTXCompiler cc;
   TRACE("PTX JIT on Function #%d\n", main_idx);
-  cc.compile(&main_fn->_decl);
+  cc.compile(main_fn->_decl);
 
   return 0;
 }

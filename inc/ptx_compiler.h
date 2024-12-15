@@ -12,10 +12,11 @@ constexpr const char *ENV_PARAMS[] = {
 class PTXCompiler {
 
 public:
-    void compile(const FuncDecl *f);
+    void compile(const FuncDecl &f);
 
 private:
     PtxAsm masm;
+    reg_t n_locals = 0;
     PtxStack stack;
     std::vector<wasm_type_t> local_types;
 };
