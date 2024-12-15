@@ -16,7 +16,6 @@ public:
 
 private:
     PtxAsm masm;
-    reg_t n_locals = 0;
     PtxStack stack;
     std::vector<wasm_type_t> local_types;
 };

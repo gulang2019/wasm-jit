@@ -39,7 +39,7 @@ static std::string local_name(const reg_t reg) {
 }
 
 struct SValue {
-    bool is_imm;
+    bool is_lit;
 
     // reg
     wasm_type_t type;
@@ -49,11 +49,11 @@ struct SValue {
     int32_t v_i = 0;
     double v_f = 0;
 
-    SValue(reg_t loc, wasm_type_t type): is_imm(false), local(loc), type(type) {}
-    explicit SValue(int32_t v): is_imm(true), type(WASM_TYPE_I32), v_i(v) {}
-    explicit SValue(double v): is_imm(true), type(WASM_TYPE_F64), v_f(v) {}
+    SValue(reg_t loc, wasm_type_t type): is_lit(false), local(loc), type(type) {}
+    explicit SValue(int32_t v): is_lit(true), type(WASM_TYPE_I32), v_i(v) {}
+    explicit SValue(double v): is_lit(true), type(WASM_TYPE_F64), v_f(v) {}
     [[nodiscard]] std::string str() const {
-        if (is_imm) {
+        if (is_lit) {
             if (type == WASM_TYPE_I32) return std::to_string(v_i);
             if (type == WASM_TYPE_F64) return std::to_string(v_f);
             return "<INVALID VALUE>";
@@ -84,7 +84,7 @@ class PtxAsm {
 
 public:
     PtxAsm() = default;
-    void reset() { ss.str(""); ss.clear(); }
+    void reset() { n_locals = 0; ss.str(""); ss.clear(); }
     std::string build() const { return ss.str(); }
     void gen_headers() {
         ss << ".version 8.4\n";
@@ -94,41 +94,43 @@ public:
     }
     void gen_func_start(const std::string &name, const FuncDecl &f) {
         ss << ".visible .entry " << name << "(\n";
-        size_t i = 0;
         for (auto p: f.sig->params) {
             ss << "  .param ." << render_ptype(wasm_to_ptx_type(p)) << " ";
-            ss << local_name(i);
-            i++;
+            ss << local_name(n_locals++);
 
-            if (i == f.sig->params.size()) ss << "\n";
+            if (n_locals == f.sig->params.size()) ss << "\n";
             else ss << ",\n";
         }
         ss << ") {\n";
     }
-    void gen_local(size_t i) { ss << ".reg .u32 %" << local_name(i) << "\n"; }
+    reg_t gen_local() {
+        const auto id = n_locals;
+        ss << ".reg .u32 " << local_name(n_locals++) << "\n";
+        return id;
+    }
     void gen_func_finish() { ss << "}\n"; }
 
-    reg_t gen_scratch_reg(reg_t &locals) {
-        ss << ".reg .u32 %" << local_name(locals) << "\n";
-        return locals++;
-    }
-
-    reg_t reg(const SValue &v, const reg_t _default) {
-        if (v.is_imm) {
-
+    // wraps a temporary value in a default register
+    reg_t wrap(const SValue &v, const reg_t _default) {
+        if (v.is_lit) {
             ss << "mov." << render_ptype(wasm_to_ptx_type(v.type)) << " ";
             ss << local_name(_default) << ", " << v.str();
-
             return _default;
-        } else return v.local;
+        }
+        return v.local;
     }
+
+    void emit_unknown(Opcode_t c) { ss << "<UNKNOWN: [0x" << std::hex << c << "]>\n"; }
 
     // arithmetics
-    void emit_add(PtxType t, uint32_t dest, SValue a, SValue b) {
-        ss << "add." << render_ptype(t) << " ";
-        ss << "%" << dest << ", " << a.str() << ", " << b.str();
+    void emit_mov(reg_t dest, const SValue &from) {
+        ss << "mov." << render_ptype(wasm_to_ptx_type(from.type)) << " ";
+        ss << local_name(dest) << ", " << from.str() << "\n";
     }
 
+    void emit_mul();
+
 private:
+    reg_t n_locals = 0;
     std::stringstream ss;
 };
