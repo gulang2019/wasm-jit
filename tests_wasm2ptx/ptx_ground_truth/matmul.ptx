@@ -25,7 +25,9 @@
 	.reg .b32 	%r<37>;
 	.reg .f64 	%fd<30>;
 	.reg .b64 	%rd<21>;
-	.loc	1 2 0
+
+//tests_wasm2ptx/cuda/matmul.cu:4 void matmul(
+	.loc	1 4 0
 
 
 	ld.param.u64 	%rd5, [matmul_param_0];
@@ -34,31 +36,43 @@
 	ld.param.u32 	%r18, [matmul_param_3];
 	ld.param.u32 	%r16, [matmul_param_4];
 	ld.param.u32 	%r17, [matmul_param_5];
-	.loc	1 8 14
+
+//tests_wasm2ptx/cuda/matmul.cu:10     auto idx = blockIdx.x * blockDim.x + threadIdx.x;
+	.loc	1 10 14
 	cvta.to.global.u64 	%rd1, %rd6;
 	cvta.to.global.u64 	%rd2, %rd5;
 	mov.u32 	%r19, %ntid.x;
 	mov.u32 	%r20, %ctaid.x;
 	mov.u32 	%r21, %tid.x;
 	mad.lo.s32 	%r1, %r20, %r19, %r21;
-	.loc	1 9 5
+
+//tests_wasm2ptx/cuda/matmul.cu:11     if (idx <= M * N) {
+	.loc	1 11 5
 	mul.lo.s32 	%r22, %r16, %r18;
 	setp.gt.u32 	%p1, %r1, %r22;
 	@%p1 bra 	$L__BB0_9;
 
-	.loc	1 10 15
+
+//tests_wasm2ptx/cuda/matmul.cu:12         int i = idx / N;
+	.loc	1 12 15
 	div.u32 	%r2, %r1, %r16;
-	.loc	1 11 15
+
+//tests_wasm2ptx/cuda/matmul.cu:13         int j = idx % N;
+	.loc	1 13 15
 	mul.lo.s32 	%r23, %r2, %r16;
 	sub.s32 	%r3, %r1, %r23;
-	.loc	1 13 9
+
+//tests_wasm2ptx/cuda/matmul.cu:15         for (int k = 0; k < K; k++) {
+	.loc	1 15 9
 	setp.lt.s32 	%p2, %r17, 1;
 	mov.f64 	%fd29, 0d0000000000000000;
 	@%p2 bra 	$L__BB0_8;
 
 	.loc	1 0 9
 	mul.lo.s32 	%r4, %r2, %r17;
-	.loc	1 13 9
+
+//tests_wasm2ptx/cuda/matmul.cu:15         for (int k = 0; k < K; k++) {
+	.loc	1 15 9
 	and.b32  	%r36, %r17, 3;
 	add.s32 	%r25, %r17, -1;
 	setp.lt.u32 	%p3, %r25, 3;
@@ -70,7 +84,9 @@
 	mul.wide.s32 	%rd3, %r16, 8;
 
 $L__BB0_4:
-	.loc	1 14 13
+
+//tests_wasm2ptx/cuda/matmul.cu:16             sum += A[i * K + k] * B[k * N + j];
+	.loc	1 16 13
 	add.s32 	%r27, %r34, %r4;
 	mul.wide.s32 	%rd7, %r27, 8;
 	add.s64 	%rd8, %rd2, %rd7;
@@ -92,9 +108,13 @@ $L__BB0_4:
 	ld.global.f64 	%fd21, [%rd13];
 	ld.global.f64 	%fd22, [%rd8+24];
 	fma.rn.f64 	%fd29, %fd22, %fd21, %fd20;
-	.loc	1 13 32
+
+//tests_wasm2ptx/cuda/matmul.cu:15         for (int k = 0; k < K; k++) {
+	.loc	1 15 32
 	add.s32 	%r34, %r34, 4;
-	.loc	1 13 9
+
+//tests_wasm2ptx/cuda/matmul.cu:15         for (int k = 0; k < K; k++) {
+	.loc	1 15 9
 	add.s32 	%r33, %r33, -4;
 	setp.ne.s32 	%p4, %r33, 0;
 	@%p4 bra 	$L__BB0_4;
@@ -105,7 +125,9 @@ $L__BB0_5:
 
 $L__BB0_7:
 	.pragma "nounroll";
-	.loc	1 14 13
+
+//tests_wasm2ptx/cuda/matmul.cu:16             sum += A[i * K + k] * B[k * N + j];
+	.loc	1 16 13
 	add.s32 	%r29, %r34, %r4;
 	mul.wide.s32 	%rd14, %r29, 8;
 	add.s64 	%rd15, %rd2, %rd14;
@@ -115,27 +137,39 @@ $L__BB0_7:
 	ld.global.f64 	%fd23, [%rd17];
 	ld.global.f64 	%fd24, [%rd15];
 	fma.rn.f64 	%fd29, %fd24, %fd23, %fd29;
-	.loc	1 13 32
+
+//tests_wasm2ptx/cuda/matmul.cu:15         for (int k = 0; k < K; k++) {
+	.loc	1 15 32
 	add.s32 	%r34, %r34, 1;
-	.loc	1 13 9
+
+//tests_wasm2ptx/cuda/matmul.cu:15         for (int k = 0; k < K; k++) {
+	.loc	1 15 9
 	add.s32 	%r36, %r36, -1;
 	setp.ne.s32 	%p6, %r36, 0;
 	@%p6 bra 	$L__BB0_7;
 
 $L__BB0_8:
-	.loc	1 16 9
+
+//tests_wasm2ptx/cuda/matmul.cu:18         C[i * N + j] = sum;
+	.loc	1 18 9
 	mad.lo.s32 	%r31, %r2, %r16, %r3;
-	.loc	1 8 14
+
+//tests_wasm2ptx/cuda/matmul.cu:10     auto idx = blockIdx.x * blockDim.x + threadIdx.x;
+	.loc	1 10 14
 	cvta.to.global.u64 	%rd18, %rd4;
-	.loc	1 16 9
+
+//tests_wasm2ptx/cuda/matmul.cu:18         C[i * N + j] = sum;
+	.loc	1 18 9
 	mul.wide.s32 	%rd19, %r31, 8;
 	add.s64 	%rd20, %rd18, %rd19;
 	st.global.f64 	[%rd20], %fd29;
 
 $L__BB0_9:
-	.loc	1 18 1
+
+//tests_wasm2ptx/cuda/matmul.cu:20 }
+	.loc	1 20 1
 	ret;
 
 }
 
-	.file	1 "/home/siyuanch/ssd/workspace/wasm-jit/tests_wasm2ptx/cuda/matmul_basic.cu"
+	.file	1 "/home/siyuanch/ssd/workspace/wasm-jit/tests_wasm2ptx/cuda/matmul.cu"

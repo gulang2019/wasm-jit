@@ -10,85 +10,103 @@
 .target sm_70
 .address_size 64
 
-	// .globl	_Z13matmul_sharedPdS_S_iii
-// _ZZ13matmul_sharedPdS_S_iiiE2As has been demoted
-// _ZZ13matmul_sharedPdS_S_iiiE2Bs has been demoted
+	// .globl	matmul_shared
+// _ZZ13matmul_sharedE2As has been demoted
+// _ZZ13matmul_sharedE2Bs has been demoted
 
-.visible .entry _Z13matmul_sharedPdS_S_iii(
-	.param .u64 _Z13matmul_sharedPdS_S_iii_param_0,
-	.param .u64 _Z13matmul_sharedPdS_S_iii_param_1,
-	.param .u64 _Z13matmul_sharedPdS_S_iii_param_2,
-	.param .u32 _Z13matmul_sharedPdS_S_iii_param_3,
-	.param .u32 _Z13matmul_sharedPdS_S_iii_param_4,
-	.param .u32 _Z13matmul_sharedPdS_S_iii_param_5
+.visible .entry matmul_shared(
+	.param .u64 matmul_shared_param_0,
+	.param .u64 matmul_shared_param_1,
+	.param .u64 matmul_shared_param_2,
+	.param .u32 matmul_shared_param_3,
+	.param .u32 matmul_shared_param_4,
+	.param .u32 matmul_shared_param_5
 )
 {
 	.reg .pred 	%p<8>;
 	.reg .b32 	%r<43>;
 	.reg .f64 	%fd<111>;
 	.reg .b64 	%rd<13>;
-	.loc	1 2 0
-	// demoted variable
-	.shared .align 8 .b8 _ZZ13matmul_sharedPdS_S_iiiE2As[8192];
-	// demoted variable
-	.shared .align 8 .b8 _ZZ13matmul_sharedPdS_S_iiiE2Bs[8192];
 
-	ld.param.u64 	%rd3, [_Z13matmul_sharedPdS_S_iii_param_0];
-	ld.param.u64 	%rd4, [_Z13matmul_sharedPdS_S_iii_param_1];
-	ld.param.u64 	%rd5, [_Z13matmul_sharedPdS_S_iii_param_2];
-	ld.param.u32 	%r25, [_Z13matmul_sharedPdS_S_iii_param_3];
-	ld.param.u32 	%r23, [_Z13matmul_sharedPdS_S_iii_param_4];
-	ld.param.u32 	%r24, [_Z13matmul_sharedPdS_S_iii_param_5];
-	.loc	1 11 13
+//tests_wasm2ptx/cuda/matmul_shared.cu:3 void matmul_shared(
+	.loc	1 3 0
+	// demoted variable
+	.shared .align 8 .b8 _ZZ13matmul_sharedE2As[8192];
+	// demoted variable
+	.shared .align 8 .b8 _ZZ13matmul_sharedE2Bs[8192];
+
+	ld.param.u64 	%rd3, [matmul_shared_param_0];
+	ld.param.u64 	%rd4, [matmul_shared_param_1];
+	ld.param.u64 	%rd5, [matmul_shared_param_2];
+	ld.param.u32 	%r25, [matmul_shared_param_3];
+	ld.param.u32 	%r23, [matmul_shared_param_4];
+	ld.param.u32 	%r24, [matmul_shared_param_5];
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:12     int idx = blockIdx.x * blockDim.x + threadIdx.x; // M dimension
+	.loc	1 12 13
 	mov.u32 	%r26, %ntid.x;
 	mov.u32 	%r27, %ctaid.x;
 	mov.u32 	%r40, %tid.x;
 	mad.lo.s32 	%r2, %r27, %r26, %r40;
-	.loc	1 12 13
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:13     int idy = blockIdx.y * blockDim.y + threadIdx.y; // N dimension
+	.loc	1 13 13
 	mov.u32 	%r28, %ntid.y;
 	mov.u32 	%r29, %ctaid.y;
 	mul.lo.s32 	%r3, %r29, %r28;
 	mov.u32 	%r38, %tid.y;
 	add.s32 	%r5, %r3, %r38;
-	.loc	1 14 5
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:15     if (idx < M && idy < N) {
+	.loc	1 15 5
 	setp.ge.s32 	%p1, %r2, %r25;
 	setp.ge.s32 	%p2, %r5, %r23;
 	or.pred  	%p3, %p1, %p2;
 	@%p3 bra 	$L__BB0_9;
 
-	.loc	1 16 9
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:17         for (int k = 0; k < K; k += 32) {
+	.loc	1 17 9
 	setp.lt.s32 	%p4, %r24, 1;
 	mov.f64 	%fd110, 0d0000000000000000;
 	@%p4 bra 	$L__BB0_8;
 
 	.loc	1 0 9
 	shl.b32 	%r31, %r38, 8;
-	mov.u32 	%r32, _ZZ13matmul_sharedPdS_S_iiiE2As;
+	mov.u32 	%r32, _ZZ13matmul_sharedE2As;
 	add.s32 	%r8, %r32, %r31;
 	shl.b32 	%r33, %r40, 3;
 	add.s32 	%r6, %r8, %r33;
-	mov.u32 	%r34, _ZZ13matmul_sharedPdS_S_iiiE2Bs;
+	mov.u32 	%r34, _ZZ13matmul_sharedE2Bs;
 	add.s32 	%r35, %r34, %r31;
 	add.s32 	%r7, %r35, %r33;
 	add.s32 	%r9, %r34, %r33;
-	.loc	1 18 13
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:19             if (k + threadIdx.x < K)
+	.loc	1 19 13
 	mad.lo.s32 	%r41, %r24, %r2, %r40;
 	add.s32 	%r36, %r23, 1;
 	mad.lo.s32 	%r39, %r38, %r36, %r3;
 	shl.b32 	%r12, %r23, 5;
-	.loc	1 11 13
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:12     int idx = blockIdx.x * blockDim.x + threadIdx.x; // M dimension
+	.loc	1 12 13
 	cvta.to.global.u64 	%rd1, %rd4;
 	cvta.to.global.u64 	%rd2, %rd3;
 	mov.u32 	%r42, 0;
 
 $L__BB0_3:
-	.loc	1 18 13
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:19             if (k + threadIdx.x < K)
+	.loc	1 19 13
 	setp.ge.u32 	%p5, %r40, %r24;
 	mov.f64 	%fd109, 0d0000000000000000;
 	mov.f64 	%fd108, %fd109;
 	@%p5 bra 	$L__BB0_5;
 
-	.loc	1 19 17
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:20                 As[threadIdx.y][threadIdx.x] = A[idx * K + k + threadIdx.x];
+	.loc	1 20 17
 	mul.wide.u32 	%rd6, %r41, 8;
 	add.s64 	%rd7, %rd2, %rd6;
 	ld.global.f64 	%fd108, [%rd7];
@@ -96,11 +114,15 @@ $L__BB0_3:
 $L__BB0_5:
 	.loc	1 0 0
 	st.shared.f64 	[%r6], %fd108;
-	.loc	1 23 13
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:24             if (k + threadIdx.y < K)
+	.loc	1 24 13
 	setp.ge.u32 	%p6, %r38, %r24;
 	@%p6 bra 	$L__BB0_7;
 
-	.loc	1 24 17
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:25                 Bs[threadIdx.y][threadIdx.x] = B[(k + threadIdx.y) * N + idy];
+	.loc	1 25 17
 	mul.wide.u32 	%rd8, %r39, 8;
 	add.s64 	%rd9, %rd1, %rd8;
 	ld.global.f64 	%fd109, [%rd9];
@@ -108,9 +130,13 @@ $L__BB0_5:
 $L__BB0_7:
 	.loc	1 0 0
 	st.shared.f64 	[%r7], %fd109;
-	.loc	1 28 13
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:29             __syncthreads();
+	.loc	1 29 13
 	bar.sync 	0;
-	.loc	1 32 17
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:33                 sum += As[threadIdx.y][kk] * Bs[kk][threadIdx.x];
+	.loc	1 33 17
 	ld.shared.f64 	%fd12, [%r9];
 	ld.shared.f64 	%fd13, [%r8];
 	fma.rn.f64 	%fd14, %fd13, %fd12, %fd110;
@@ -207,31 +233,47 @@ $L__BB0_7:
 	ld.shared.f64 	%fd105, [%r9+7936];
 	ld.shared.f64 	%fd106, [%r8+248];
 	fma.rn.f64 	%fd110, %fd106, %fd105, %fd104;
-	.loc	1 34 13
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:35             __syncthreads();
+	.loc	1 35 13
 	bar.sync 	0;
-	.loc	1 16 9
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:17         for (int k = 0; k < K; k += 32) {
+	.loc	1 17 9
 	add.s32 	%r41, %r41, 32;
 	add.s32 	%r40, %r40, 32;
 	add.s32 	%r39, %r39, %r12;
 	add.s32 	%r38, %r38, 32;
-	.loc	1 16 32
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:17         for (int k = 0; k < K; k += 32) {
+	.loc	1 17 32
 	add.s32 	%r42, %r42, 32;
-	.loc	1 16 9
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:17         for (int k = 0; k < K; k += 32) {
+	.loc	1 17 9
 	setp.lt.s32 	%p7, %r42, %r24;
 	@%p7 bra 	$L__BB0_3;
 
 $L__BB0_8:
-	.loc	1 38 9
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:39         C[idx * N + idy] = sum;
+	.loc	1 39 9
 	mad.lo.s32 	%r37, %r2, %r23, %r5;
-	.loc	1 11 13
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:12     int idx = blockIdx.x * blockDim.x + threadIdx.x; // M dimension
+	.loc	1 12 13
 	cvta.to.global.u64 	%rd10, %rd5;
-	.loc	1 38 9
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:39         C[idx * N + idy] = sum;
+	.loc	1 39 9
 	mul.wide.s32 	%rd11, %r37, 8;
 	add.s64 	%rd12, %rd10, %rd11;
 	st.global.f64 	[%rd12], %fd110;
 
 $L__BB0_9:
-	.loc	1 40 1
+
+//tests_wasm2ptx/cuda/matmul_shared.cu:41 }
+	.loc	1 41 1
 	ret;
 
 }

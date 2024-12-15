@@ -7,16 +7,16 @@
 //
 
 .version 7.8
-.target sm_70
+.target sm_80
 .address_size 64
 
-	// .globl	_Z8row_sumsPKdPdii
+	// .globl	row_sum
 
-.visible .entry _Z8row_sumsPKdPdii(
-	.param .u64 _Z8row_sumsPKdPdii_param_0,
-	.param .u64 _Z8row_sumsPKdPdii_param_1,
-	.param .u32 _Z8row_sumsPKdPdii_param_2,
-	.param .u32 _Z8row_sumsPKdPdii_param_3
+.visible .entry row_sum(
+	.param .u64 row_sum_param_0,
+	.param .u64 row_sum_param_1,
+	.param .u32 row_sum_param_2,
+	.param .u32 row_sum_param_3
 )
 {
 	.reg .pred 	%p<22>;
@@ -25,13 +25,13 @@
 	.reg .f64 	%fd<226>;
 	.reg .b64 	%rd<15>;
 
-//tests_wasm2ptx/cuda/row_sum.cu:2 __global__ void row_sums(const double* A, double* rowSums, int M, int N) {
+//tests_wasm2ptx/cuda/row_sum.cu:2 __global__ void row_sum(const double* A, double* rowSums, int M, int N) {
 	.loc	1 2 0
 
 
-	ld.param.u64 	%rd7, [_Z8row_sumsPKdPdii_param_0];
-	ld.param.u32 	%r28, [_Z8row_sumsPKdPdii_param_2];
-	ld.param.u32 	%r27, [_Z8row_sumsPKdPdii_param_3];
+	ld.param.u64 	%rd7, [row_sum_param_0];
+	ld.param.u32 	%r28, [row_sum_param_2];
+	ld.param.u32 	%r27, [row_sum_param_3];
 
 //tests_wasm2ptx/cuda/row_sum.cu:3     int row = blockIdx.x * blockDim.x + threadIdx.x;
 	.loc	1 3 13
@@ -398,7 +398,7 @@ $L__BB0_16:
 
 $L__BB0_17:
 	.loc	1 0 9
-	ld.param.u32 	%r99, [_Z8row_sumsPKdPdii_param_3];
+	ld.param.u32 	%r99, [row_sum_param_3];
 
 //tests_wasm2ptx/cuda/row_sum.cu:7             sumExp += exp(A[row * N + col]);
 	.loc	1 7 23
@@ -407,7 +407,7 @@ $L__BB0_17:
 	@%p17 bra 	$L__BB0_23;
 
 	.loc	1 0 23
-	ld.param.u32 	%r101, [_Z8row_sumsPKdPdii_param_3];
+	ld.param.u32 	%r101, [row_sum_param_3];
 
 //tests_wasm2ptx/cuda/row_sum.cu:7             sumExp += exp(A[row * N + col]);
 	.loc	1 7 23
@@ -511,7 +511,7 @@ $L__BB0_22:
 
 $L__BB0_23:
 	.loc	1 0 9
-	ld.param.u64 	%rd13, [_Z8row_sumsPKdPdii_param_1];
+	ld.param.u64 	%rd13, [row_sum_param_1];
 
 //tests_wasm2ptx/cuda/row_sum.cu:3     int row = blockIdx.x * blockDim.x + threadIdx.x;
 	.loc	1 3 13

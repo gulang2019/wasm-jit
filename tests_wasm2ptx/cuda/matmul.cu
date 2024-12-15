@@ -1,5 +1,5 @@
 
-
+extern "C"{
 __global__ 
 void matmul(
     double* A,
@@ -17,4 +17,5 @@ void matmul(
         }
         C[i * N + j] = sum;
     }
+}
 }

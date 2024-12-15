@@ -9,7 +9,7 @@ def compile(dirname: str, output_dir: str = None):
                 print(f"Compiling {file}")
                 output_file = os.path.join(output_dir, file.replace('.cu', '.ptx'))
                 
-                os.system(f"nvcc -ptx {os.path.join(root, file)} -g -lineinfo --source-in-ptx -keep -o {output_file}")
+                os.system(f"nvcc -ptx {os.path.join(root, file)} -g -lineinfo --source-in-ptx -keep -o {output_file} -arch=sm_80")
                 
 if __name__ == "__main__":
     compile("tests_wasm2ptx/cuda", "tests_wasm2ptx/ptx")

@@ -1,4 +1,4 @@
-
+extern "C"{
 __global__
 void matmul_shared(
     double* A,
@@ -38,4 +38,5 @@ void matmul_shared(
         // Store result in C
         C[idx * N + idy] = sum;
     }
+}
 }

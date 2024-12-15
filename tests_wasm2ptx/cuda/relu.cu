@@ -1,12 +1,13 @@
-
+extern "C"{
 __global__
-void ReLU(
+void relu(
     double* A,
     double* B,
-    int M, int N
+    int M
 ) {
     auto idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < M * N) {
+    if (idx < M) {
         B[idx] = A[idx] > 0 ? A[idx] : 0;
     }
+}
 }

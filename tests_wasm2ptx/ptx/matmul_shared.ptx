@@ -7,20 +7,20 @@
 //
 
 .version 7.8
-.target sm_70
+.target sm_80
 .address_size 64
 
-	// .globl	_Z13matmul_sharedPdS_S_iii
-// _ZZ13matmul_sharedPdS_S_iiiE2As has been demoted
-// _ZZ13matmul_sharedPdS_S_iiiE2Bs has been demoted
+	// .globl	matmul_shared
+// _ZZ13matmul_sharedE2As has been demoted
+// _ZZ13matmul_sharedE2Bs has been demoted
 
-.visible .entry _Z13matmul_sharedPdS_S_iii(
-	.param .u64 _Z13matmul_sharedPdS_S_iii_param_0,
-	.param .u64 _Z13matmul_sharedPdS_S_iii_param_1,
-	.param .u64 _Z13matmul_sharedPdS_S_iii_param_2,
-	.param .u32 _Z13matmul_sharedPdS_S_iii_param_3,
-	.param .u32 _Z13matmul_sharedPdS_S_iii_param_4,
-	.param .u32 _Z13matmul_sharedPdS_S_iii_param_5
+.visible .entry matmul_shared(
+	.param .u64 matmul_shared_param_0,
+	.param .u64 matmul_shared_param_1,
+	.param .u64 matmul_shared_param_2,
+	.param .u32 matmul_shared_param_3,
+	.param .u32 matmul_shared_param_4,
+	.param .u32 matmul_shared_param_5
 )
 {
 	.reg .pred 	%p<8>;
@@ -31,16 +31,16 @@
 //tests_wasm2ptx/cuda/matmul_shared.cu:3 void matmul_shared(
 	.loc	1 3 0
 	// demoted variable
-	.shared .align 8 .b8 _ZZ13matmul_sharedPdS_S_iiiE2As[8192];
+	.shared .align 8 .b8 _ZZ13matmul_sharedE2As[8192];
 	// demoted variable
-	.shared .align 8 .b8 _ZZ13matmul_sharedPdS_S_iiiE2Bs[8192];
+	.shared .align 8 .b8 _ZZ13matmul_sharedE2Bs[8192];
 
-	ld.param.u64 	%rd3, [_Z13matmul_sharedPdS_S_iii_param_0];
-	ld.param.u64 	%rd4, [_Z13matmul_sharedPdS_S_iii_param_1];
-	ld.param.u64 	%rd5, [_Z13matmul_sharedPdS_S_iii_param_2];
-	ld.param.u32 	%r25, [_Z13matmul_sharedPdS_S_iii_param_3];
-	ld.param.u32 	%r23, [_Z13matmul_sharedPdS_S_iii_param_4];
-	ld.param.u32 	%r24, [_Z13matmul_sharedPdS_S_iii_param_5];
+	ld.param.u64 	%rd3, [matmul_shared_param_0];
+	ld.param.u64 	%rd4, [matmul_shared_param_1];
+	ld.param.u64 	%rd5, [matmul_shared_param_2];
+	ld.param.u32 	%r25, [matmul_shared_param_3];
+	ld.param.u32 	%r23, [matmul_shared_param_4];
+	ld.param.u32 	%r24, [matmul_shared_param_5];
 
 //tests_wasm2ptx/cuda/matmul_shared.cu:12     int idx = blockIdx.x * blockDim.x + threadIdx.x; // M dimension
 	.loc	1 12 13
@@ -73,11 +73,11 @@
 
 	.loc	1 0 9
 	shl.b32 	%r31, %r38, 8;
-	mov.u32 	%r32, _ZZ13matmul_sharedPdS_S_iiiE2As;
+	mov.u32 	%r32, _ZZ13matmul_sharedE2As;
 	add.s32 	%r8, %r32, %r31;
 	shl.b32 	%r33, %r40, 3;
 	add.s32 	%r6, %r8, %r33;
-	mov.u32 	%r34, _ZZ13matmul_sharedPdS_S_iiiE2Bs;
+	mov.u32 	%r34, _ZZ13matmul_sharedE2Bs;
 	add.s32 	%r35, %r34, %r31;
 	add.s32 	%r7, %r35, %r33;
 	add.s32 	%r9, %r34, %r33;

@@ -7,43 +7,40 @@
 //
 
 .version 7.8
-.target sm_70
+.target sm_80
 .address_size 64
 
-	// .globl	_Z4ReLUPdS_ii
+	// .globl	relu
 
-.visible .entry _Z4ReLUPdS_ii(
-	.param .u64 _Z4ReLUPdS_ii_param_0,
-	.param .u64 _Z4ReLUPdS_ii_param_1,
-	.param .u32 _Z4ReLUPdS_ii_param_2,
-	.param .u32 _Z4ReLUPdS_ii_param_3
+.visible .entry relu(
+	.param .u64 relu_param_0,
+	.param .u64 relu_param_1,
+	.param .u32 relu_param_2
 )
 {
 	.reg .pred 	%p<2>;
-	.reg .b32 	%r<8>;
+	.reg .b32 	%r<6>;
 	.reg .f64 	%fd<3>;
 	.reg .b64 	%rd<8>;
 
-//tests_wasm2ptx/cuda/relu.cu:3 void ReLU(
+//tests_wasm2ptx/cuda/relu.cu:3 void relu(
 	.loc	1 3 0
 
 
-	ld.param.u64 	%rd1, [_Z4ReLUPdS_ii_param_0];
-	ld.param.u64 	%rd2, [_Z4ReLUPdS_ii_param_1];
-	ld.param.u32 	%r2, [_Z4ReLUPdS_ii_param_2];
-	ld.param.u32 	%r3, [_Z4ReLUPdS_ii_param_3];
+	ld.param.u64 	%rd1, [relu_param_0];
+	ld.param.u64 	%rd2, [relu_param_1];
+	ld.param.u32 	%r2, [relu_param_2];
 
 //tests_wasm2ptx/cuda/relu.cu:8     auto idx = blockIdx.x * blockDim.x + threadIdx.x;
 	.loc	1 8 14
-	mov.u32 	%r4, %ctaid.x;
-	mov.u32 	%r5, %ntid.x;
-	mov.u32 	%r6, %tid.x;
-	mad.lo.s32 	%r1, %r4, %r5, %r6;
+	mov.u32 	%r3, %ctaid.x;
+	mov.u32 	%r4, %ntid.x;
+	mov.u32 	%r5, %tid.x;
+	mad.lo.s32 	%r1, %r3, %r4, %r5;
 
-//tests_wasm2ptx/cuda/relu.cu:9     if (idx < M * N) {
+//tests_wasm2ptx/cuda/relu.cu:9     if (idx < M) {
 	.loc	1 9 5
-	mul.lo.s32 	%r7, %r3, %r2;
-	setp.ge.u32 	%p1, %r1, %r7;
+	setp.ge.u32 	%p1, %r1, %r2;
 	@%p1 bra 	$L__BB0_2;
 
 

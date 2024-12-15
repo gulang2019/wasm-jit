@@ -83,4 +83,28 @@ struct Matmul: public TestCase{
     ) override;
 };
 
+struct ReLU: public TestCase{
+    const int size = 1024;
+    ReLU(std::string name, bool verbose): TestCase(name, verbose) {}
+    bool _run(
+        CUfunction kernel = nullptr
+    ) override;
+};
+
+struct RowSum: public TestCase{
+    const int size = 1024;
+    RowSum(std::string name, bool verbose): TestCase(name, verbose) {}
+    bool _run(
+        CUfunction kernel = nullptr
+    ) override;
+};
+
+struct Softmax: public TestCase{
+    const int size = 1024;
+    Softmax(std::string name, bool verbose): TestCase(name, verbose) {}
+    bool _run(
+        CUfunction kernel = nullptr
+    ) override;
+};
+
 bool all_close(const double* A, const double* B, int N);

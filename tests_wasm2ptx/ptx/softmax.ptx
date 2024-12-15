@@ -7,17 +7,17 @@
 //
 
 .version 7.8
-.target sm_70
+.target sm_80
 .address_size 64
 
-	// .globl	_Z7softmaxPKdS0_Pdii
+	// .globl	softmax
 
-.visible .entry _Z7softmaxPKdS0_Pdii(
-	.param .u64 _Z7softmaxPKdS0_Pdii_param_0,
-	.param .u64 _Z7softmaxPKdS0_Pdii_param_1,
-	.param .u64 _Z7softmaxPKdS0_Pdii_param_2,
-	.param .u32 _Z7softmaxPKdS0_Pdii_param_3,
-	.param .u32 _Z7softmaxPKdS0_Pdii_param_4
+.visible .entry softmax(
+	.param .u64 softmax_param_0,
+	.param .u64 softmax_param_1,
+	.param .u64 softmax_param_2,
+	.param .u32 softmax_param_3,
+	.param .u32 softmax_param_4
 )
 {
 	.reg .pred 	%p<5>;
@@ -30,11 +30,11 @@
 	.loc	1 3 0
 
 
-	ld.param.u64 	%rd2, [_Z7softmaxPKdS0_Pdii_param_0];
-	ld.param.u64 	%rd3, [_Z7softmaxPKdS0_Pdii_param_1];
-	ld.param.u64 	%rd4, [_Z7softmaxPKdS0_Pdii_param_2];
-	ld.param.u32 	%r6, [_Z7softmaxPKdS0_Pdii_param_3];
-	ld.param.u32 	%r5, [_Z7softmaxPKdS0_Pdii_param_4];
+	ld.param.u64 	%rd2, [softmax_param_0];
+	ld.param.u64 	%rd3, [softmax_param_1];
+	ld.param.u64 	%rd4, [softmax_param_2];
+	ld.param.u32 	%r6, [softmax_param_3];
+	ld.param.u32 	%r5, [softmax_param_4];
 
 //tests_wasm2ptx/cuda/softmax.cu:4     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	.loc	1 4 13

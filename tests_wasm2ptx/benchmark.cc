@@ -26,7 +26,7 @@ void TestCase::_compile() {
                                     };
 
     NVPTXCOMPILER_SAFE_CALL(nvPTXCompilerGetVersion(&majorVer, &minorVer));
-    printf("Current PTX Compiler API Version : %d.%d\n", majorVer, minorVer);
+    // printf("Current PTX Compiler API Version : %d.%d\n", majorVer, minorVer);
 
     // Load ptx code from file test_wasm2ptx/ptx/{name}.ptx
     std::string ptxCode;
@@ -34,7 +34,7 @@ void TestCase::_compile() {
     FILE* ptxFile = fopen(ptxPath.c_str(), "r");
     if (ptxFile == NULL) {
         printf("Error: Cannot open file %s\n", ptxPath.c_str());
-        exit(1);
+        return;
     }
     char line[1024];
     while (fgets(line, 1024, ptxFile)) {
@@ -74,7 +74,7 @@ void TestCase::_compile() {
 
     NVPTXCOMPILER_SAFE_CALL(nvPTXCompilerGetInfoLogSize(compiler, &infoSize));
 
-    if (infoSize != 0) {
+    if (infoSize != 0 and verbose) {
         infoLog = (char*)malloc(infoSize+1);
         NVPTXCOMPILER_SAFE_CALL(nvPTXCompilerGetInfoLog(compiler, infoLog));
         printf("Info log: %s\n", infoLog);
@@ -87,7 +87,10 @@ void TestCase::_compile() {
 void TestCase::run() {
     // Load the compiled GPU assembly code 'elf'
     _compile();
-    assert(elf != nullptr);
+    if(elf == nullptr) {
+        printf("Error %s: No compiled code\n", name.c_str());
+        return;
+    }
     CUdevice cuDevice;
     CUcontext context;
     CUmodule module;
@@ -119,7 +122,7 @@ bool all_close(const double* A, const double* B, int N)
 }
 
 int main(int argc, char** argv) {
-    std::vector<char*> testNames;
+    std::vector<std::string> testNames;
     bool verbose = false;
     for (int i = 1; i < argc; i++){
         if (strcmp(argv[i], "--verbose") == 0) {
@@ -130,14 +133,32 @@ int main(int argc, char** argv) {
     if (testNames.size() == 0) {
         testNames.push_back("vector_add");
         testNames.push_back("matmul");
+        testNames.push_back("row_sum");
+        testNames.push_back("softmax");
+        testNames.push_back("relu");
     }
     for (auto name : testNames) {
+        if (verbose) {
+            printf("Running test %s\n", name);
+        }
         if (name == "vector_add") {
             VectorAdd test("vector_add", verbose);
             test.run();
         }
         else if (name == "matmul") {
             Matmul test("matmul", verbose);
+            test.run();
+        }
+        else if (name == "row_sum") {
+            RowSum test("row_sum", verbose);
+            test.run();
+        }
+        else if (name == "softmax") {
+            Softmax test("softmax", verbose);
+            test.run();
+        }
+        else if (name == "relu") {
+            ReLU test("relu", verbose);
             test.run();
         }
         else {

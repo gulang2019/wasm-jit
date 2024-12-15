@@ -1,5 +1,5 @@
-
-__global__ void row_sums(const double* A, double* rowSums, int M, int N) {
+extern "C"{
+__global__ void row_sum(const double* A, double* rowSums, int M, int N) {
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     if (row < M) {
         double sumExp = 0.0;
@@ -8,4 +8,5 @@ __global__ void row_sums(const double* A, double* rowSums, int M, int N) {
         }
         rowSums[row] = sumExp;
     }
+}
 }
