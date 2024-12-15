@@ -39,27 +39,13 @@ static std::string local_name(const reg_t reg) {
 }
 
 struct SValue {
-    bool is_lit;
-
     // reg
     wasm_type_t type;
     reg_t local = 0;
 
-    // imm
-    int32_t v_i = 0;
-    double v_f = 0;
-
-    SValue(reg_t loc, wasm_type_t type): is_lit(false), local(loc), type(type) {}
-    explicit SValue(int32_t v): is_lit(true), type(WASM_TYPE_I32), v_i(v) {}
-    explicit SValue(double v): is_lit(true), type(WASM_TYPE_F64), v_f(v) {}
-    [[nodiscard]] std::string str() const {
-        if (is_lit) {
-            if (type == WASM_TYPE_I32) return std::to_string(v_i);
-            if (type == WASM_TYPE_F64) return std::to_string(v_f);
-            return "<INVALID VALUE>";
-        }
-        return local_name(local);
-    }
+    SValue(reg_t loc, wasm_type_t t): local(loc), type(t) {}
+    [[nodiscard]] std::string str() const { return local_name(local); }
+    [[nodiscard]] SValue with_reg(reg_t new_reg) const { return {new_reg, type}; }
 };
 
 // assert no nondeterministic values in stack, e.g., no cfg block labels
@@ -110,15 +96,12 @@ public:
     }
     void gen_func_finish() { ss << "}\n"; }
 
-    // wraps a temporary value in a default register
-    reg_t wrap(const SValue &v, const reg_t _default) {
-        if (v.is_lit) {
-            ss << "mov." << render_ptype(wasm_to_ptx_type(v.type)) << " ";
-            ss << local_name(_default) << ", " << v.str();
-            return _default;
-        }
-        return v.local;
+    reg_t new_reg(const SValue &v) {
+        const reg_t r = gen_local();
+        emit_mov(r, v);
+        return r;
     }
+    SValue copy_to_new_reg(const SValue &v) { return v.with_reg(new_reg(v)); }
 
     void emit_unknown(Opcode_t c) { ss << "<UNKNOWN: [0x" << std::hex << c << "]>\n"; }
 
@@ -128,7 +111,10 @@ public:
         ss << local_name(dest) << ", " << from.str() << "\n";
     }
 
-    void emit_mul();
+    void emit_binop(const char *op, const SValue &a, const SValue &b) {
+        ss << op << "." << render_ptype(wasm_to_ptx_type(a.type)) << " ";
+        ss << a.str() << ", " << b.str() << "\n";
+    }
 
 private:
     reg_t n_locals = 0;

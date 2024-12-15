@@ -31,7 +31,9 @@ void PTXCompiler::compile(const FuncDecl &func) {
             case WASM_OP_NOP: break;
 
             case WASM_OP_LOCAL_GET: {
-                stack.push(stack.at(codeptr.rd_i32leb()));
+                auto v = stack.at(codeptr.rd_i32leb());
+                auto r = masm.new_reg(v);
+                stack.push(v.with_reg(r));
                 break;
             }
 
@@ -40,6 +42,13 @@ void PTXCompiler::compile(const FuncDecl &func) {
                 auto from = stack.pop();
 
                 masm.emit_mov(to.local, from);
+                break;
+            }
+
+            case WASM_OP_I32_MUL: {
+                auto b = stack.pop();
+                auto a = stack.pop();
+                masm.emit_binop("mul.lo", a, b);
                 break;
             }
 
