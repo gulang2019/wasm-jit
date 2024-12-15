@@ -9,6 +9,7 @@
 #include "ir.h"
 #include "interpreter.h"
 #include "instance.h"
+#include "ptx_assmbler.h"
 
 static struct option long_options[] = {
   {"trace", no_argument,  &g_trace, 1},

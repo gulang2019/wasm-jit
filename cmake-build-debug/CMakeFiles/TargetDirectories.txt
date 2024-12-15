@@ -1,0 +1,8 @@
+/home/linxuanm/workspace/wasm-jit/cmake-build-debug/CMakeFiles/vm.dir
+/home/linxuanm/workspace/wasm-jit/cmake-build-debug/CMakeFiles/wasm-vm.dir
+/home/linxuanm/workspace/wasm-jit/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/linxuanm/workspace/wasm-jit/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/linxuanm/workspace/wasm-jit/cmake-build-debug/CMakeFiles/list_install_components.dir
+/home/linxuanm/workspace/wasm-jit/cmake-build-debug/CMakeFiles/install.dir
+/home/linxuanm/workspace/wasm-jit/cmake-build-debug/CMakeFiles/install/local.dir
+/home/linxuanm/workspace/wasm-jit/cmake-build-debug/CMakeFiles/install/strip.dir
