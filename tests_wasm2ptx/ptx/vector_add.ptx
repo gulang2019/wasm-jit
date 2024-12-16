@@ -5,11 +5,11 @@
 .visible .entry vector_add(
   .param .u64 vector_add_param_0,
   .param .u64 vector_add_param_1,
-  .param .u64 vector_add_param_2,
-  .param .u64 vector_add_param_3
+  .param .u64 vector_add_param_2
 ) {
-.reg .i32 %r0;
-.reg .u64 %rd<25>;
+.reg .b32 %r0;
+.reg .f64 %fd<2>;
+.reg .u64 %rd<11>;
 // Prologue Begins;
 mov.u32 %r0, %tid.x;
 cvt.u64.u32 %rd0, %r0;
@@ -23,53 +23,52 @@ ld.param.u64 %rd4, [vector_add_param_1];
 cvta.to.global.u64 %rd4, %rd4;
 ld.param.u64 %rd5, [vector_add_param_2];
 cvta.to.global.u64 %rd5, %rd5;
-ld.param.u64 %rd6, [vector_add_param_3];
 // Prologue ends;
-// local.get
-// local.get
-// i32.mul
-mul.wide.u64 %rd11, %rd2, %rd1
-// local.get
-// i32.add
-add.u64 %rd12, %rd0, %rd11
-// local.set
-// local.get
-// i32.const
-mov.s64 %rd13, 4
-// i32.mul
-mul.wide.u64 %rd14, %rd13, %rd12
-// local.get
-// i32.add
-add.u64 %rd15, %rd3, %rd14
-// local.set
-// local.get
-// i32.const
-mov.s64 %rd16, 4
-// i32.mul
-mul.wide.u64 %rd17, %rd16, %rd12
-// local.get
-// i32.add
-add.u64 %rd18, %rd4, %rd17
-// local.set
-// local.get
-// i32.const
-mov.s64 %rd19, 4
-// i32.mul
-mul.wide.u64 %rd20, %rd19, %rd12
-// local.get
-// i32.add
-add.u64 %rd21, %rd5, %rd20
-// local.set
-// local.get
-// i32.load
-ld.global.u64 %rd22, [%rd15]
-// local.get
-// i32.load
-ld.global.u64 %rd23, [%rd18]
-// i32.add
-add.u64 %rd24, %rd23, %rd22
-// local.get
-// i32.store
-store.global.u64 [%rd24], %rd21
-// end
+// local.get;
+// local.get;
+// i32.mul;
+mul.lo.u64 %rd10, %rd2, %rd1;
+// local.get;
+// i32.add;
+add.u64 %rd10, %rd0, %rd10;
+// local.set;
+// local.get;
+// i32.const;
+mov.s64 %rd6, 8;
+// i32.mul;
+mul.lo.u64 %rd6, %rd6, %rd10;
+// local.get;
+// i32.add;
+add.u64 %rd6, %rd3, %rd6;
+// local.set;
+// local.get;
+// i32.const;
+mov.s64 %rd7, 8;
+// i32.mul;
+mul.lo.u64 %rd7, %rd7, %rd10;
+// local.get;
+// i32.add;
+add.u64 %rd7, %rd4, %rd7;
+// local.set;
+// local.get;
+// i32.const;
+mov.s64 %rd8, 8;
+// i32.mul;
+mul.lo.u64 %rd8, %rd8, %rd10;
+// local.get;
+// i32.add;
+add.u64 %rd8, %rd5, %rd8;
+// local.set;
+// local.get;
+// local.get;
+// f64.load;
+ld.global.f64 %fd0, [%rd6];
+// local.get;
+// f64.load;
+ld.global.f64 %fd1, [%rd7];
+// f64.add;
+add.f64 %fd0, %fd1, %fd0;
+// f64.store;
+st.global.f64 [%rd8], %fd0;
+// end;
 }

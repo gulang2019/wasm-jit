@@ -41,7 +41,7 @@ void PTXCompiler::compile(
             }
 
             case WASM_OP_I32_MUL: {
-                emit_binop("mul.wide", WASM_TYPE_I32);
+                emit_binop("mul.lo", WASM_TYPE_I32);
                 break;
             }
 
@@ -74,6 +74,27 @@ void PTXCompiler::compile(
             }
 
             case WASM_OP_END: { break; }
+
+            case WASM_OP_F64_ADD: {
+                emit_binop("add", WASM_TYPE_F64);
+                break;
+            }
+
+            case WASM_OP_F64_LOAD: {
+                auto mem_arg = codeptr.rd_mem_arg();
+                auto offset = stack.pop();
+                auto& r = stack.push(WASM_TYPE_F64);
+                masm.emit_load("global", r, offset);
+                break;
+            }
+
+            case WASM_OP_F64_STORE: {
+                auto mem_arg = codeptr.rd_mem_arg();
+                auto v = stack.pop();
+                auto addr = stack.pop();
+                masm.emit_store("global", addr, v);
+                break;
+            }
 
             default: {
                 ERR("Unimplemented opcode [0x%x]\n", code);

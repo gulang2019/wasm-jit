@@ -112,14 +112,14 @@ public:
     SValue pop() {
         const auto v = values.back();
         values.pop_back();
-        // ref_counts[v.type][v.local] --;
+        ref_counts[v.type][v.local] --;
         return v;
     }
 
     const SValue& set(const size_t loc, const SValue &v) {
         // only local.set calls here.
         auto& old = values[loc];
-        // ref_counts[old.type][old.local] --;
+        ref_counts[old.type][old.local] --;
         old = v;
         ref_counts[v.type][v.local] ++;
         return old;
@@ -127,7 +127,7 @@ public:
 
     void emit_reg_alloc(std::ostream &ss) {
         // we reserve a register for the environment
-        ss << ".reg .i32 %r0;\n"; 
+        ss << ".reg .b32 %r0;\n"; 
         for (auto &[t, refs]: ref_counts) {
             ss << ".reg ." << render_ptype(wasm_to_ptx_type(t)) << " ";
             ss << render_reg(t) << "<" << refs.size() << ">;\n";
@@ -219,7 +219,7 @@ public:
     // }
     // SValue copy_to_new_reg(const SValue &v) { return v.with_reg(new_reg(v)); }
 
-    void emit_unknown(Opcode_t c) { ss << "<UNKNOWN: [0x" << std::hex << c << "]>\n"; }
+    void emit_unknown(Opcode_t c) { ss << "<UNKNOWN: [0x" << std::hex << c << "]>;\n"; }
 
     // arithmetics
     // void emit_mov(reg_t dest, const SValue &from) {
@@ -227,28 +227,28 @@ public:
     //     ss << local_name(dest) << ", " << from.str() << "\n";
     // }
     void emit_mov_i32(SValue& r, int32_t v) {
-        ss << "mov.s64 " << r.str() << ", " << v << "\n";
+        ss << "mov.s64 " << r.str() << ", " << v << ";\n";
     }
 
     void emit_binop(const char *op, const SValue& dest, const SValue &src_a, const SValue &src_b) {
         ss << op << "." << render_ptype(wasm_to_ptx_type(src_a.type)) << " ";
-        ss << dest.str() << ", " << src_a.str() << ", " << src_b.str() << "\n";
+        ss << dest.str() << ", " << src_a.str() << ", " << src_b.str() << ";\n";
     }
 
     void emit_load(const char *mode, const SValue& r, const SValue &v) {
-        ss << "ld." << mode << "." << render_ptype(wasm_to_ptx_type(v.type));
+        ss << "ld." << mode << "." << render_ptype(wasm_to_ptx_type(r.type));
         ss << " " << r.str() << ", [";
-        ss << v.str() << "]\n";
+        ss << v.str() << "];\n";
     }
 
     void emit_store(const char *mode, const SValue &addr, const SValue &v) {
-        ss << "store." << mode << "." << render_ptype(wasm_to_ptx_type(v.type));
+        ss << "st." << mode << "." << render_ptype(wasm_to_ptx_type(v.type));
         ss << " [" << addr.str() << "], ";
-        ss << v.str() << "\n";
+        ss << v.str() << ";\n";
     }
 
     void emit_comment(const std::string &comment) { 
-        ss << "// " << comment << "\n"; 
+        ss << "// " << comment << ";\n"; 
     }
 
 private:
