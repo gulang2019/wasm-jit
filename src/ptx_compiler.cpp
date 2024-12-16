@@ -87,6 +87,16 @@ void PTXCompiler::compile(
                 break;
             }
 
+            case WASM_OP_I32_DIV_S: {
+                emit_binop("div", WASM_TYPE_I32);
+                break;
+            }
+
+            case WASM_OP_I32_SUB: {
+                emit_binop("sub", WASM_TYPE_I32);
+                break;
+            }
+
             case WASM_OP_I32_CONST: {
                 auto& r = stack.push(WASM_TYPE_I32);
                 auto v = codeptr.rd_i32leb();
@@ -119,6 +129,11 @@ void PTXCompiler::compile(
 
             case WASM_OP_F64_ADD: {
                 emit_binop("add", WASM_TYPE_F64);
+                break;
+            }
+            
+            case WASM_OP_F64_MUL: {
+                emit_binop("mul", WASM_TYPE_F64);
                 break;
             }
 
@@ -159,10 +174,10 @@ void PTXCompiler::compile(
 
 void PTXCompiler::emit_binop(const char *mode, 
                             wasm_type_t res_type) {
-    auto lval = stack.pop();
-    auto rval = stack.pop();
+    auto src_b = stack.pop();
+    auto src_a = stack.pop();
     auto& v = stack.push(res_type);
-    masm.emit_binop(mode, v, lval, rval);
+    masm.emit_binop(mode, v, src_a, src_b);
 }
 
 void PTXCompiler::emit(std::ostream& out) {
