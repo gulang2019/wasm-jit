@@ -58,7 +58,8 @@ typedef enum {
   WASM_TYPE_V128 = 0x7B,
   WASM_TYPE_FUNCREF = 0x70,
   WASM_TYPE_EXTERNREF = 0x6F,
-  WASM_TYPE_FUNC = 0x60
+  WASM_TYPE_FUNC = 0x60,
+  WASM_TYPE_PREDICATE = 0x6E,
 } wasm_type_t;
 
 /* Kind decoding */

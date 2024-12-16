@@ -4,7 +4,7 @@ void compute_ground_truth(double* hX, double* hOut_gt, int M, int N) {
     for (size_t i = 0; i < M; ++i) {
         double sum = 0;
         for (size_t j = 0; j < N; ++j) {
-            sum += exp(hX[i * N + j]);
+            sum += hX[i * N + j];
         }
         hOut_gt[i] = sum;
     }

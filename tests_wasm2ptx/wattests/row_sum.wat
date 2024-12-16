@@ -2,23 +2,19 @@
   (memory 1) ;; Declare a single memory page (64KiB)
 
   ;; Declare the row_sums function
-  (func (export "row_sums")
+  (func (export "row_sum-ppii")
+    (param $thread_idx i32)  ;; Thread index within the block
+    (param $block_idx i32)   ;; Block index within the grid
+    (param $thread_dim i32)  ;; Number of threads per block
     (param $base_a i32)      ;; Base address of matrix A
     (param $base_row_sums i32) ;; Base address of rowSums array
     (param $M i32)           ;; Number of rows in A
     (param $N i32)           ;; Number of columns in A
-    (param $thread_idx i32)  ;; Thread index within the block
-    (param $block_idx i32)   ;; Block index within the grid
-    (param $thread_dim i32)  ;; Number of threads per block
-    (param $block_dim i32)   ;; Number of blocks in the grid
 
     ;; Declare locals
     (local $row i32)         ;; Current row index
     (local $col i32)         ;; Current column index
-    (local $addr_a i32)      ;; Address of A[row, col]
-    (local $addr_row_sum i32) ;; Address of rowSums[row]
     (local $sum f64)         ;; Sum of exponentials
-    (local $value f64)       ;; Temporary value for A[row, col]
 
     ;; Compute global thread index for row
     local.get $block_idx
@@ -46,16 +42,9 @@
       i32.mul
       local.get $base_a
       i32.add
-      local.set $addr_a
 
       ;; Load value from A[row, col]
-      local.get $addr_a
       f64.load
-      local.set $value
-
-      ;; Add exp(value) to sum
-      local.get $value
-      call $exp ;; Call the imported exp function
       local.get $sum
       f64.add
       local.set $sum
@@ -79,14 +68,11 @@
     i32.mul
     local.get $base_row_sums
     i32.add
-    local.set $addr_row_sum
 
     ;; Store sum in rowSums[row]
-    local.get $addr_row_sum
     local.get $sum
     f64.store
   )
 
   ;; Import the exp function (host-provided)
-  (import "env" "exp" (func $exp (param f64) (result f64)))
 )

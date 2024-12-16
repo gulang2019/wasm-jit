@@ -1,6 +1,15 @@
 #include "ptx_compiler.h"
-
 #include "CodeReader.h"
+
+struct AbstractBlock {
+    std::string label;
+    std::vector<SValue>* snapshot = nullptr;
+    ~AbstractBlock() {
+        if (snapshot) {
+            free(snapshot);
+        }
+    }
+};
 
 void PTXCompiler::compile(
     const char* fn_name,
@@ -12,6 +21,7 @@ void PTXCompiler::compile(
     // header
     masm.gen_headers();
     masm.gen_func_start(fn_name, func, stack);
+    stack.end_of_params();
 
     for (auto k = 0; k < func.num_pure_locals; k++) {
         stack.push(WASM_TYPE_I32);
@@ -19,6 +29,9 @@ void PTXCompiler::compile(
 
     TRACE("# inputs: %lu\n", func.sig->params.size());
     TRACE("# outputs: %lu\n", func.sig->results.size());
+
+    std::vector<AbstractBlock> blocks;
+    int n_blocks = 0;
 
     while (!codeptr.is_end()) {
         auto code = codeptr.rd_opcode();
@@ -42,6 +55,30 @@ void PTXCompiler::compile(
 
             case WASM_OP_I32_MUL: {
                 emit_binop("mul.lo", WASM_TYPE_I32);
+                break;
+            }
+
+            case WASM_OP_LOOP: {
+                codeptr.skip_block_type();
+                blocks.push_back({});
+                blocks.back().label = "$L" + std::to_string(n_blocks++);
+                blocks.back().snapshot = nullptr;
+                masm.emit_label(blocks.back().label);
+                stack.canonicalize(masm, blocks.back().snapshot);
+                break;
+            }
+
+            case WASM_OP_BR_IF: {
+                unsigned index = codeptr.rd_u32leb();
+                auto& block = blocks[blocks.size() - 1 - index];
+                auto v = stack.pop();
+                stack.canonicalize(masm, block.snapshot);
+                masm.emit_branch(v, block.label);
+                break;
+            }
+
+            case WASM_OP_I32_LT_S: {
+                emit_binop("setp.lt", WASM_TYPE_PREDICATE);
                 break;
             }
 
@@ -73,10 +110,22 @@ void PTXCompiler::compile(
                 break;
             }
 
-            case WASM_OP_END: { break; }
+            case WASM_OP_END: { 
+                if (blocks.size()) {
+                    blocks.pop_back();
+                }
+                 break; 
+            }
 
             case WASM_OP_F64_ADD: {
                 emit_binop("add", WASM_TYPE_F64);
+                break;
+            }
+
+            case WASM_OP_F64_CONST: {
+                auto& r = stack.push(WASM_TYPE_F64);
+                auto imm = codeptr.rd_u64();
+                masm.emit_mov_f64(r, *reinterpret_cast<double*>(&imm));
                 break;
             }
 
@@ -97,7 +146,7 @@ void PTXCompiler::compile(
             }
 
             default: {
-                ERR("Unimplemented opcode [0x%x]\n", code);
+                ERR("Unimplemented opcode [0x%x] %s\n", code, opcode_table[code].mnemonic);
                 masm.emit_unknown(code);
                 break;
             }

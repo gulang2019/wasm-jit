@@ -5,9 +5,11 @@
 #include <string>
 #include <cstring>
 #include <cassert>
-#include "ir.h"
 #include <iostream>
-
+#include <iomanip>
+#include "ir.h"
+// #include <iostream>
+#include <memory>
 typedef size_t reg_t;
 
 constexpr size_t N_ENV = 3;
@@ -17,13 +19,14 @@ constexpr const char *ENV_PARAMS[] = {
 
 enum PtxType {
     U32, U64, S32, S64,
-    F32, F64, B32, B64
+    F32, F64, B32, B64, PRED
 };
 
 inline PtxType wasm_to_ptx_type(const wasm_type_t t) {
     switch (t) {
         case WASM_TYPE_I32: return S32;
         case WASM_TYPE_F64: return F64;
+        case WASM_TYPE_PREDICATE: return PRED;
         default: throw std::runtime_error("invalid wasm type to render");
     }
 }
@@ -38,6 +41,7 @@ inline const char *render_ptype(PtxType t) {
         case F64: return "f64";
         case B32: return "b32";
         case B64: return "b64";
+        case PRED: return "pred";
     }
     return "";
 }
@@ -50,6 +54,9 @@ inline std::string render_reg(wasm_type_t t, reg_t reg = -1) {
             break;
         case WASM_TYPE_F64: 
             t_str = "%fd";
+            break;
+        case WASM_TYPE_PREDICATE:
+            t_str = "%pd";
             break;
         default:
             throw std::runtime_error("invalid wasm type to render");
@@ -66,41 +73,61 @@ struct SValue {
     // reg
     wasm_type_t type;
     reg_t local;
+    SValue() = default;
+    SValue(const std::string& s) {
+        if (s[0] == '%') {
+            if (s[1] == 'r') {
+                type = WASM_TYPE_I32;
+            } else if (s[1] == 'f') {
+                type = WASM_TYPE_F64;
+            } 
+            else {
+                throw std::runtime_error("invalid register type");
+            }
+            local = std::stoi(s.substr(3));
+        } else {
+            throw std::runtime_error("invalid register name" + s);
+        }
+    }
 
     SValue(wasm_type_t t, reg_t loc): type(t), local(loc) {}
     [[nodiscard]] std::string str() const {
-        // if (local < N_ENV) return ENV_PARAMS[local];
         return render_reg(type, local);
     }
     [[nodiscard]] SValue with_reg(reg_t new_reg) const { return {type, new_reg}; }
 };
 
+class PtxAsm;
 // assert no nondeterministic values in stack, e.g., no cfg block labels
 // change this in the future
 class PtxStack {
-    
-
-public:
-    PtxStack() {reset();}
-    [[nodiscard]] const SValue& at(const size_t loc) const { return values.at(loc); }
-    void reset() { 
-        values.clear(); 
-        ref_counts.clear();
-    }
-    SValue& push(wasm_type_t t) {
-        // this is the only place where we allocate a new register
+    SValue _alloc(wasm_type_t t) {
         if (ref_counts.find(t) == ref_counts.end()) {
             ref_counts[t] = std::vector<int>();
         }
         for (reg_t i = 0; i < ref_counts[t].size(); i++) {
             if (ref_counts[t][i] == 0) {
                 ref_counts[t][i] = 1;
-                values.push_back({t, i});
-                return values.back();
+                return {t, i};
             }
         }
         ref_counts[t].push_back(1);
-        values.push_back({t, ref_counts[t].size() - 1});
+        return {t, ref_counts[t].size() - 1};
+    }
+public:
+    PtxStack() {reset();}
+    [[nodiscard]] const SValue& at(const size_t loc) const { return values.at(loc); }
+    void reset() { 
+        values.clear(); 
+        ref_counts.clear();
+        // n_locals = 0;
+        n_params = 0;
+        tmp_regs[WASM_TYPE_I32] = _alloc(WASM_TYPE_I32);
+        tmp_regs[WASM_TYPE_F64] = _alloc(WASM_TYPE_F64);
+    }
+    SValue& push(wasm_type_t t) {
+        // this is the only place where we allocate a new register
+        values.push_back(_alloc(t));
         return values.back();
     }
     const SValue& push(const SValue &v) {
@@ -124,20 +151,38 @@ public:
         ref_counts[v.type][v.local] ++;
         return old;
     }
+    
+    void end_of_params() {
+        n_params = values.size();
+    }
+
+    // void end_of_locals() {
+    //     n_locals = values.size();
+    // }
 
     void emit_reg_alloc(std::ostream &ss) {
         // we reserve a register for the environment
-        ss << ".reg .b32 %r0;\n"; 
+        ss << ".reg .b32 %r0;\n";
         for (auto &[t, refs]: ref_counts) {
             ss << ".reg ." << render_ptype(wasm_to_ptx_type(t)) << " ";
             ss << render_reg(t) << "<" << refs.size() << ">;\n";
         }
     }
+    
+    void canonicalize(
+        PtxAsm& masm,
+        std::vector<SValue>*& canonical_values);
 
 private:
     std::vector<SValue> values;
     std::unordered_map<wasm_type_t, std::vector<int> > ref_counts;
+    // int n_locals = 0;
+    int n_params = 0;
+    std::unordered_map<wasm_type_t, SValue> tmp_regs;
 };
+
+
+
 
 class PtxAsm {
 
@@ -222,17 +267,29 @@ public:
     void emit_unknown(Opcode_t c) { ss << "<UNKNOWN: [0x" << std::hex << c << "]>;\n"; }
 
     // arithmetics
-    // void emit_mov(reg_t dest, const SValue &from) {
-    //     ss << "mov." << render_ptype(wasm_to_ptx_type(from.type)) << " ";
-    //     ss << local_name(dest) << ", " << from.str() << "\n";
-    // }
+    void emit_mov(const SValue& to, const SValue &from) {
+        ss << "mov." << render_ptype(wasm_to_ptx_type(from.type)) << " ";
+        ss << to.str() << ", " << from.str() << ";\n";
+    }
     void emit_mov_i32(SValue& r, int32_t v) {
         ss << "mov.s64 " << r.str() << ", " << v << ";\n";
+    }
+
+    void emit_mov_f64(SValue& r, double v) {
+        ss  << "mov.f64 " << r.str() << ", " << std::scientific << std::setprecision(16) << v << ";\n";
     }
 
     void emit_binop(const char *op, const SValue& dest, const SValue &src_a, const SValue &src_b) {
         ss << op << "." << render_ptype(wasm_to_ptx_type(src_a.type)) << " ";
         ss << dest.str() << ", " << src_a.str() << ", " << src_b.str() << ";\n";
+    }
+
+    void emit_branch(const SValue& pred, const std::string& label) {
+        ss << "@" << pred.str() << " bra " << label << ";\n";
+    }
+
+    void emit_label(const std::string& label) {
+        ss << label << ":\n";
     }
 
     void emit_load(const char *mode, const SValue& r, const SValue &v) {
@@ -253,5 +310,6 @@ public:
 
 private:
     std::stringstream ss;
+    std::vector<std::stringstream> sses;
     std::stringstream ss_prologue;
 };

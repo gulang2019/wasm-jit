@@ -15,3 +15,13 @@ cmake .. && make -j32
 cd ../.. 
 tests_wasm2ptx/build/benchmark [--verbose] TestCase1 TestCase2 ...
 ```
+
+Run test case, using `row_sum` as example
+```bash
+# compile code from cuda to ground truth ptx and wat to wasm
+python tests_wasm2ptx/cuda2ptx.py 
+# compile ptx code using our compiler
+./wasm-vm -o tests_wasm2ptx/ptx/row_sum.ptx ./tests_wasm2ptx/wasm/row_sum.wasm
+# test the correctness
+./tests_wasm2ptx/build/wasm2ptx row_sum
+```
