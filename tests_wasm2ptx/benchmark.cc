@@ -5,6 +5,7 @@
 #include <string>
 #include <iostream> 
 #include <cassert>
+#include <chrono>
 
 #include "test.h"
 
@@ -30,7 +31,7 @@ void TestCase::_compile() {
 
     // Load ptx code from file test_wasm2ptx/ptx/{name}.ptx
     std::string ptxCode;
-    std::string ptxPath = "tests_wasm2ptx/ptx/" + name + ".ptx";
+    std::string ptxPath = "tests_wasm2ptx/ptx_ground_truth/" + name + ".ptx";
     FILE* ptxFile = fopen(ptxPath.c_str(), "r");
     if (ptxFile == NULL) {
         printf("Error: Cannot open file %s\n", ptxPath.c_str());
@@ -86,7 +87,11 @@ void TestCase::_compile() {
 
 void TestCase::run() {
     // Load the compiled GPU assembly code 'elf'
+    auto start = std::chrono::high_resolution_clock::now();
     _compile();
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+    printf("Compilation time: %f seconds\n", elapsed.count());
     if(elf == nullptr) {
         printf("Error %s: No compiled code\n", name.c_str());
         return;

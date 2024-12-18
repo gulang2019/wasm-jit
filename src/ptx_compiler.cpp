@@ -36,7 +36,7 @@ void PTXCompiler::compile(
     while (!codeptr.is_end()) {
         auto code = codeptr.rd_opcode();
 
-        masm.emit_comment(opcode_table[code].mnemonic); 
+        // masm.emit_comment(opcode_table[code].mnemonic); 
 
         switch (code) {
             case WASM_OP_UNREACHABLE:

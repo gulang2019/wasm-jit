@@ -9,7 +9,7 @@ void PtxStack::canonicalize(
     std::vector<SValue>*& canonical_values) {
     
     std::unordered_map<std::string, std::pair<std::string, int> > dst_src;
-    printf("Canonicalization #locals %d, #values %d %p\n", n_params, values.size(), canonical_values);
+    // printf("Canonicalization #locals %d, #values %d %p\n", n_params, values.size(), canonical_values);
     if (canonical_values == nullptr) {
         canonical_values = new std::vector<SValue>;
         // first, we find out a list of registers that are distinct with each other
@@ -39,10 +39,10 @@ void PtxStack::canonicalize(
         }
     }
     
-    std::cout << "Canonicalization: " << std::endl;
-    for (auto& [dst, src]: dst_src) {
-        std::cout << dst << " <- " << src.first << std::endl;
-    }
+    // std::cout << "Canonicalization: " << std::endl;
+    // for (auto& [dst, src]: dst_src) {
+    //     std::cout << dst << " <- " << src.first << std::endl;
+    // }
 
     // we perform a cyclic shuffling to canonicalize the register names
     std::unordered_set<std::string> cycles;
@@ -69,10 +69,10 @@ void PtxStack::canonicalize(
             cycles.insert(cur);
         }
     }
-    std::cout << "Cycles: " << std::endl;
-    for (auto& c: cycles) {
-        std::cout << c << std::endl;
-    }
+    // std::cout << "Cycles: " << std::endl;
+    // for (auto& c: cycles) {
+    //     std::cout << c << std::endl;
+    // }
     for (auto& [dst, src]: dst_src) {
         if ((cycles.count(dst) or 
             (not visited_set.count(dst))) 
