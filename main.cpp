@@ -1,8 +1,10 @@
-#include <sstream>
 #include <iostream>
 #include <cstdio>
 #include <cstring>
 #include <getopt.h>
+#include <cassert>
+#include <fstream>
+#include <chrono>
 
 #include "common.h"
 #include "parse.h"
@@ -10,6 +12,7 @@
 #include "interpreter.h"
 #include "instance.h"
 #include "ptx_compiler.h"
+
 
 static struct option long_options[] = {
   {"trace", no_argument,  &g_trace, 1},
@@ -20,6 +23,7 @@ static struct option long_options[] = {
 
 typedef struct args_t {
   std::string infile;
+  const char* outfile;
   std::vector<std::string> mainargs;
   bool jit = false; 
 } args_t;
@@ -28,7 +32,7 @@ args_t parse_args(int argc, char* argv[]) {
   int opt;
   args_t args;
   optind = 0;
-  while ((opt = getopt_long_only(argc, argv, ":a:hj", long_options, NULL)) != -1) {
+  while ((opt = getopt_long_only(argc, argv, ":a:o:hj", long_options, NULL)) != -1) {
     switch(opt) {
       case 0: break;
       case 'a':
@@ -36,6 +40,13 @@ args_t parse_args(int argc, char* argv[]) {
         while ((optind < (argc - 1))) {
           args.mainargs.push_back(argv[optind++]);
         }
+        break;
+      case 'o':
+        if (optarg == NULL) {
+          ERR("Option '-o' requires an argument.\n");
+          exit(1);
+        }
+        args.outfile = optarg;
         break;
       case 'j':
         args.jit = true;
@@ -95,19 +106,37 @@ int main(int argc, char *argv[]) {
   //   v.print();
   // }
 
-  Function* main_fn = nullptr;
-  int main_idx = -1;
+  Function* fn = nullptr;
+  
+  int fn_idx = -1;
+  const char* fn_name = nullptr;
   for (auto &[name, kind, desc] : module.Exports()) {
-    if (name == "main" && kind == KIND_FUNC) {
-      main_idx = module.getFuncIdx(desc.func);
-      main_fn = &instance._functions.at(main_idx);
+    if (kind == KIND_FUNC) {
+      fn_idx = module.getFuncIdx(desc.func);
+      fn = &instance._functions.at(fn_idx);
+      fn_name = name.c_str();
+      break;
     }
   }
-  assert(main_fn != nullptr);
+  assert(fn != nullptr && fn_name);
 
   PTXCompiler cc;
-  TRACE("PTX JIT on Function #%d\n", main_idx);
-  cc.compile(main_fn->_decl);
+  TRACE("PTX JIT on Function #%s\n", fn_name);
+  auto start_time = std::chrono::high_resolution_clock::now();
+  cc.compile(fn_name, fn->_decl);
+  auto end_time = std::chrono::high_resolution_clock::now();
+
+  // Calculate the elapsed time in milliseconds
+  std::chrono::duration<double, std::milli> elapsed = end_time - start_time;
+
+  // Output the result
+  std::cout << "Elapsed time: " << elapsed.count() << " ms" << std::endl;
+
+  if (args.outfile) {
+    std::ofstream out(args.outfile);
+    cc.emit(out);
+  } 
+  // cc.emit(std::cout);
 
   return 0;
 }
